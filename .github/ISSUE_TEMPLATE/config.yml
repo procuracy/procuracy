@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/procuracy/procuracy/security/advisories/new
+    about: Please report security issues privately via GitHub Security Advisories, not in public issues.
+  - name: Question or discussion
+    url: https://github.com/procuracy/procuracy/discussions
+    about: Use Discussions for design questions, usage help, and general conversation.

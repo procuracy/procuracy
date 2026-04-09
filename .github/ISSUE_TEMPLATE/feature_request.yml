@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest a new adapter, template, engine, or capability
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        procuracy is intentionally small. Before filing, please skim the "What is *not* in v0.1"
+        section of `docs/manifest-spec.md` — some omissions are deliberate, not oversights.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of feature?
+      options:
+        - New adapter (GitHub, Slack, Linear, Jira, Notion, email, GitLab, Bitbucket, Discord, other)
+        - New template (a contractor role we should ship out of the box)
+        - New engine (Claude Code, OpenHands, OpenAI Assistants, custom, other)
+        - Manifest spec change
+        - CLI surface change
+        - Security / capability enforcement
+        - Audit / observability
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Lead with the user/operator pain. "I want X" is less useful than
+        "When I try to Y, Z happens, and I have to work around it by W."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: A sketch is fine. Concrete CLI/manifest examples help.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I have read the README's "Status" section and confirmed this is not already in flight.
+        - label: I am willing to send a PR for this (optional, but helpful to know).

@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in procuracy isn't working as documented
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. procuracy is alpha — most subcommands are stubs.
+        Please first check `procuracy version` and confirm the issue is not in something marked
+        "not implemented yet" in the README's status section.
+
+  - type: input
+    id: version
+    attributes:
+      label: procuracy version
+      description: Output of `procuracy version`
+      placeholder: "0.1.0-dev"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / arch
+      placeholder: "macOS 15 arm64 / Ubuntu 24.04 amd64"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Be specific. Include the exact command you ran.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: manifest
+    attributes:
+      label: Manifest (if relevant)
+      description: Paste the procuracy.yaml that triggered the bug. Redact any tokens.
+      render: yaml
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      render: shell

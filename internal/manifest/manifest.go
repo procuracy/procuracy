@@ -17,16 +17,16 @@ import (
 
 // Manifest is the root of a procuracy.yaml file.
 type Manifest struct {
-	Name          string            `yaml:"name"`
-	DisplayName   string            `yaml:"display_name,omitempty"`
-	Description   string            `yaml:"description,omitempty"`
-	Identity      Identity          `yaml:"identity"`
-	Scopes        Scopes            `yaml:"scopes"`
-	Triggers      []Trigger         `yaml:"triggers"`
-	Runtime       Runtime           `yaml:"runtime"`
+	Name          string             `yaml:"name"`
+	DisplayName   string             `yaml:"display_name,omitempty"`
+	Description   string             `yaml:"description,omitempty"`
+	Identity      Identity           `yaml:"identity"`
+	Scopes        Scopes             `yaml:"scopes"`
+	Triggers      []Trigger          `yaml:"triggers"`
+	Runtime       Runtime            `yaml:"runtime"`
 	Handlers      map[string]Handler `yaml:"handlers"`
-	Observability *Observability    `yaml:"observability,omitempty"`
-	Termination   *Termination      `yaml:"termination,omitempty"`
+	Observability *Observability     `yaml:"observability,omitempty"`
+	Termination   *Termination       `yaml:"termination,omitempty"`
 }
 
 // Identity is the contractor's account presence on each integration.
@@ -51,13 +51,13 @@ type Trigger struct {
 
 // Runtime describes how the contractor thinks and what it costs.
 type Runtime struct {
-	Engine               string  `yaml:"engine"`
-	Model                string  `yaml:"model,omitempty"`
-	Workspace            string  `yaml:"workspace"`
-	CostLimitDailyUSD    float64 `yaml:"cost_limit_daily_usd"`
-	CostLimitPerTaskUSD  float64 `yaml:"cost_limit_per_task_usd"`
-	TimeoutPerTaskSecs   int     `yaml:"timeout_per_task_seconds,omitempty"`
-	MaxConcurrentTasks   int     `yaml:"max_concurrent_tasks,omitempty"`
+	Engine              string  `yaml:"engine"`
+	Model               string  `yaml:"model,omitempty"`
+	Workspace           string  `yaml:"workspace"`
+	CostLimitDailyUSD   float64 `yaml:"cost_limit_daily_usd"`
+	CostLimitPerTaskUSD float64 `yaml:"cost_limit_per_task_usd"`
+	TimeoutPerTaskSecs  int     `yaml:"timeout_per_task_seconds,omitempty"`
+	MaxConcurrentTasks  int     `yaml:"max_concurrent_tasks,omitempty"`
 }
 
 // Handler is a named unit of work referenced by triggers.
