@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/procuracy/procuracy/internal/audit"
 	"github.com/procuracy/procuracy/internal/manifest"
 )
 
@@ -31,6 +32,7 @@ Commands:
   auth <provider>    Authenticate to an integration (github|slack|linear|anthropic)
   init               Scaffold a new contractor from a template
   validate <path>    Parse and validate a procuracy.yaml manifest
+  verify <path>      Verify a procuracy audit log JSONL file (chain integrity)
   version            Print the procuracy version
 
 Run 'procuracy <command> -h' for command-specific help.
@@ -60,6 +62,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "validate":
 		return cmdValidate(rest, stdout, stderr)
+	case "verify":
+		return cmdVerify(rest, stdout, stderr)
 	case "hire", "start", "pause", "update", "logs", "report", "fire", "auth", "init":
 		fmt.Fprintf(stderr, "procuracy %s: not implemented yet (tracked in docs/roadmap.md)\n", cmd)
 		return 64
@@ -92,5 +96,27 @@ func cmdValidate(args []string, stdout, stderr io.Writer) int {
 	for _, w := range m.Warnings() {
 		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
+	return 0
+}
+
+func cmdVerify(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	fs.Usage = func() {
+		fmt.Fprintln(stderr, "Usage: procuracy verify <path-to-audit.jsonl>")
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		fs.Usage()
+		return 2
+	}
+	count, err := audit.VerifyFile(fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(stderr, "verify: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "ok: %d entries verified\n", count)
 	return 0
 }
