@@ -1,0 +1,11 @@
+name: github
+description: GitHub.com / GitHub Enterprise — repos, PRs, issues, actions
+identity_field: github_username
+verbs:
+  - read
+  - write
+  - pr
+  - merge
+  - admin
+  - none
+status: planned

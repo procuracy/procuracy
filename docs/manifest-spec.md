@@ -23,6 +23,7 @@ runtime:         { ... }         # required
 handlers:        { ... }         # required (at least one)
 observability:   { ... }         # optional
 termination:     { ... }         # optional but strongly recommended
+state:           { ... }         # optional, v0.2 placeholder (parsed and warned about, ignored at runtime)
 ```
 
 Unknown top-level keys are a **validation error**, not a warning. The manifest is the source of truth — typos must fail loudly.
@@ -49,17 +50,40 @@ Free text, multi-line allowed. Used in `procuracy report`, in the welcome post w
 
 ## `identity` (object, required)
 
-Real, scoped accounts on the tools your team uses. Each field is the *desired* identity — `procuracy hire` provisions these accounts (with the operator's OAuth approval) and writes back any IDs the provider assigns.
+Real, scoped accounts on the tools your team uses. Each field is the *desired* identity — in `direct` mode, `procuracy hire` provisions these accounts (with the operator's OAuth approval) and writes back any IDs the provider assigns.
 
 ```yaml
 identity:
-  email: aria@acme.com           # required if any handler sends mail
+  mode: direct                   # or: idp-managed (v0.2; see below)
+  email: aria@acme.com           # required if scopes.email is set
   github_username: aria-acme     # required if scopes.github is set
   slack_handle: aria             # required if scopes.slack is set
   linear_user: aria              # required if scopes.linear is set
+  jira_user: aria                # required if scopes.jira is set (v0.2 adapter)
 ```
 
-Validation rule: every `scopes.<integration>` block must have a corresponding `identity.<integration>_*` field. You cannot scope an integration the contractor has no identity in.
+### `identity.mode` (string, optional, default `direct`)
+
+Selects between procuracy's two identity-provisioning models:
+
+- **`direct`** (the v0.1 default) — one operator runs `procuracy hire` from their laptop holding OAuth admin tokens for each integration; procuracy creates accounts via direct API calls. This is what the README's quickstart describes.
+- **`idp-managed`** (the v0.2 target) — procuracy orchestrates an identity provider (Okta, Azure AD, Google Workspace, JumpCloud) and lets SCIM cascade the new user into downstream tools. The full design is in [`enterprise-provisioning.md`](enterprise-provisioning.md) §5.2.
+
+In v0.1, `idp-managed` **parses successfully** but produces a warning at validate time and is rejected by the v0.1 runtime — you can author manifests targeted at the v0.2 design today without breaking `procuracy validate`. The field is defined now so v0.1 → v0.2 is a non-breaking transition: existing `direct` manifests do not need to add anything.
+
+Any value other than `direct` or `idp-managed` is a validation error.
+
+### Identity field cross-reference
+
+Validation rule: every `scopes.<integration>` block must have a corresponding identity field, where which field is required is declared by the adapter (see *Adapter registration* below). You cannot scope an integration the contractor has no identity in. The required identity fields for the v0.1 bundled adapters are:
+
+| Adapter | Required identity field |
+|---|---|
+| `github` | `github_username` |
+| `slack` | `slack_handle` |
+| `linear` | `linear_user` |
+| `jira` | `jira_user` |
+| `email` | `email` |
 
 ---
 
@@ -93,9 +117,24 @@ Each scope string is `<verb>:<resource>` or `<verb>:none`.
 - **`<verb>:none`** is an explicit denial. Denials always win over grants — even a wildcard grant cannot override a `none` for the same verb.
 - **Order does not matter.** Scopes are a set, not a list.
 
-### Reserved integration keys
+### Adapter registration
 
-The v0.1 spec reserves these adapter names: `github`, `slack`, `linear`, `jira`, `notion`, `email`, `gitlab`, `bitbucket`, `discord`. Adding a new adapter is a non-breaking change; using an unreserved key is a validation error to prevent typos.
+Integration names are not hard-coded in the parser. They come from an **adapter registry** loaded at startup from `internal/adapters/<name>/adapter.yaml` files bundled into the procuracy binary. Each adapter manifest declares the integration name, the identity field it requires, the scope verbs it recognizes, and its implementation status:
+
+```yaml
+# internal/adapters/github/adapter.yaml
+name: github
+description: GitHub.com / GitHub Enterprise — repos, PRs, issues, actions
+identity_field: github_username
+verbs: [read, write, pr, merge, admin, none]
+status: planned    # planned | alpha | stable
+```
+
+The v0.1 binary ships placeholder manifests for `github`, `slack`, `linear`, `jira`, `email`. All five are `status: planned` — none of the actual adapter code exists yet, but the registration mechanism is exercised.
+
+**Adding a new adapter is dropping a YAML file**, not modifying procuracy core. v0.2 adds `aws`, `okta`, `azure-ad`, `google-workspace`, `jumpcloud`, `notion`, `gitlab`, `bitbucket`, `discord`, etc., entirely as new files. The same mechanism will load community-maintained third-party adapters from `~/.procuracy/adapters/` once that path is wired up in v0.2+.
+
+Using a name not in the registry is a validation error and the error message lists the registered names so typos are obvious.
 
 ---
 
@@ -210,17 +249,45 @@ If `termination` is omitted, `procuracy fire` falls back to revoking every token
 
 ---
 
+## `state` (object, optional, **v0.2 placeholder**)
+
+Tracks where a manifest is in its provisioning lifecycle. **In v0.1 the block is parsed and round-tripped but the runtime ignores it** — `procuracy validate` does not write to it, `procuracy hire` does not consult it.
+
+The block is defined in v0.1 so that v0.2's three-actor request → approve → provision flow has a place to land without requiring a breaking spec change. See [`enterprise-provisioning.md`](enterprise-provisioning.md) §5.1 for the full v0.2 design.
+
+```yaml
+state:
+  phase: requested              # draft | requested | approved | provisioned | running | paused | fired
+  requested_by: alice@company.com
+  approved_by: bob@company.com
+  provisioned_by: it-admin@company.com
+  approval_ticket: COMPANY-1234
+  signature: "ed25519:..."      # signed by the approver, verified by the provisioner (v0.2)
+  history:
+    - 2026-04-09T10:00Z drafted by alice@company.com
+    - 2026-04-09T10:05Z requested via procuracy request → COMPANY-1234
+    - 2026-04-09T11:30Z approved by bob@company.com (security review)
+```
+
+`phase` must be one of the listed values if present. All other fields are free-form strings; v0.2 will tighten this once the request/approve/hire commands ship.
+
+A populated `state` block produces a non-fatal warning at validate time in v0.1 (so users know the runtime is ignoring it). An empty block (`state: {}`) is silent.
+
+---
+
 ## Validation order
 
 When `procuracy` loads a manifest it runs these checks in order. The first failing check produces a hard error; later checks are not run.
 
 1. **Parse** — valid YAML, no unknown top-level keys.
 2. **Required fields** — `name`, `identity`, `scopes`, `triggers`, `runtime`, `handlers` are present.
-3. **Field shape** — `name` matches the regex, cron strings parse, paths are absolute where required, costs are positive.
-4. **Cross-references** — every `triggers[*].do` resolves to a handler; every `scopes.<integration>` has a matching `identity` field; every handler is referenced.
-5. **Adapter validation** — each scope verb is recognized by its adapter, each trigger event identifier is recognized.
+3. **Field shape** — `name` matches the regex, `identity.mode` is `direct` or `idp-managed`, `state.phase` (if set) is one of the recognized phases, cron strings parse, paths are absolute where required, costs are positive.
+4. **Cross-references** — every `triggers[*].do` resolves to a handler; every `scopes.<integration>` resolves against the adapter registry and has the identity field that adapter declares; every handler is referenced.
+5. **Adapter validation** — each scope verb is recognized by its adapter, each trigger event identifier is recognized. (Not implemented in v0.1; the registry is loaded but verb-level validation is deferred to the capability layer.)
 
 Stages 1–4 run in pure Go and require no network. Stage 5 requires the adapter registry but no live credentials.
+
+After validation, the parser may also produce **non-fatal warnings** via `Manifest.Warnings()` for v0.2-targeted features that the v0.1 runtime cannot honor — currently `identity.mode=idp-managed` and any populated `state` block. Warnings do not fail validation; they are surfaced by `procuracy validate` on stderr after the `ok:` line so authors can iterate on v0.2 manifests today.
 
 ---
 

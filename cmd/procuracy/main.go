@@ -89,5 +89,8 @@ func cmdValidate(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	fmt.Fprintf(stdout, "ok: %s (%d trigger(s), %d handler(s))\n", m.Name, len(m.Triggers), len(m.Handlers))
+	for _, w := range m.Warnings() {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
+	}
 	return 0
 }

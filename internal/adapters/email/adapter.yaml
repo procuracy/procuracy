@@ -1,0 +1,9 @@
+name: email
+description: Outbound email — Google Workspace, Microsoft 365, SendGrid, SMTP
+identity_field: email
+verbs:
+  - send
+  - reply
+  - read
+  - none
+status: planned

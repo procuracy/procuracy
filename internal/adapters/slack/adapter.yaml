@@ -1,0 +1,10 @@
+name: slack
+description: Slack — channel posts, DMs, threads, reactions
+identity_field: slack_handle
+verbs:
+  - post
+  - dm
+  - read
+  - react
+  - none
+status: planned

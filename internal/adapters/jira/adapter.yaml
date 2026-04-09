@@ -1,0 +1,11 @@
+name: jira
+description: Jira / Jira Cloud — issues, comments, transitions, projects
+identity_field: jira_user
+verbs:
+  - read
+  - comment
+  - transition
+  - assign
+  - create
+  - none
+status: planned

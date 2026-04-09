@@ -13,6 +13,8 @@ import (
 	"regexp"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/procuracy/procuracy/internal/adapters"
 )
 
 // Manifest is the root of a procuracy.yaml file.
@@ -27,14 +29,59 @@ type Manifest struct {
 	Handlers      map[string]Handler `yaml:"handlers"`
 	Observability *Observability     `yaml:"observability,omitempty"`
 	Termination   *Termination       `yaml:"termination,omitempty"`
+	State         *State             `yaml:"state,omitempty"`
 }
 
 // Identity is the contractor's account presence on each integration.
+//
+// The Mode field selects between procuracy's two identity provisioning
+// models: "direct" (the v0.1 default — operator holds OAuth tokens and
+// procuracy creates accounts via direct API calls) and "idp-managed"
+// (the v0.2 target — procuracy orchestrates an identity provider and
+// lets SCIM cascade into downstream tools). The latter mode parses
+// successfully but produces a warning at validate time and is rejected
+// by the v0.1 runtime; see docs/enterprise-provisioning.md for the
+// full design.
 type Identity struct {
-	Email          string `yaml:"email,omitempty"`
-	GitHubUsername string `yaml:"github_username,omitempty"`
-	SlackHandle    string `yaml:"slack_handle,omitempty"`
-	LinearUser     string `yaml:"linear_user,omitempty"`
+	Mode           IdentityMode `yaml:"mode,omitempty"`
+	Email          string       `yaml:"email,omitempty"`
+	GitHubUsername string       `yaml:"github_username,omitempty"`
+	SlackHandle    string       `yaml:"slack_handle,omitempty"`
+	LinearUser     string       `yaml:"linear_user,omitempty"`
+	JiraUser       string       `yaml:"jira_user,omitempty"`
+}
+
+// IdentityMode selects between provisioning models.
+type IdentityMode string
+
+const (
+	// IdentityModeDirect is the v0.1 model: one operator with OAuth tokens.
+	IdentityModeDirect IdentityMode = "direct"
+	// IdentityModeIdPManaged is the v0.2 model: procuracy orchestrates the
+	// IdP and lets SCIM cascade. Parses successfully in v0.1 (so manifests
+	// targeted at v0.2 do not fail validation today) but is rejected by the
+	// v0.1 runtime with a pointer to docs/enterprise-provisioning.md.
+	IdentityModeIdPManaged IdentityMode = "idp-managed"
+)
+
+// fieldByName returns the value of the named identity field. The name
+// must match an adapter manifest's identity_field declaration. Used by
+// the cross-reference checker to look up the identity required by an
+// adapter without hard-coding the adapter list in this package.
+func (i *Identity) fieldByName(name string) (value string, known bool) {
+	switch name {
+	case "email":
+		return i.Email, true
+	case "github_username":
+		return i.GitHubUsername, true
+	case "slack_handle":
+		return i.SlackHandle, true
+	case "linear_user":
+		return i.LinearUser, true
+	case "jira_user":
+		return i.JiraUser, true
+	}
+	return "", false
 }
 
 // Scopes is the capability declaration. Keys are integration names; values
@@ -80,19 +127,45 @@ type Termination struct {
 	OnKillSignal []map[string]any `yaml:"on_kill_signal,omitempty"`
 }
 
-// reservedIntegrations is the v0.1 closed set of adapter names. Adding to
-// this list is a non-breaking change; using a name not in the list is a
-// validation error.
-var reservedIntegrations = map[string]bool{
-	"github":    true,
-	"slack":     true,
-	"linear":    true,
-	"jira":      true,
-	"notion":    true,
-	"email":     true,
-	"gitlab":    true,
-	"bitbucket": true,
-	"discord":   true,
+// State tracks where a manifest is in its provisioning lifecycle.
+//
+// In v0.1 the State block is parsed and round-tripped but is otherwise
+// ignored by the runtime — `procuracy validate` does not write to it,
+// `procuracy hire` does not consult it. The block is defined in v0.1 so
+// that v0.2's three-actor request → approve → provision flow has a
+// place to land without requiring a breaking spec change. See
+// docs/enterprise-provisioning.md §5.1 for the full v0.2 design.
+type State struct {
+	Phase          StatePhase `yaml:"phase,omitempty"`
+	RequestedBy    string     `yaml:"requested_by,omitempty"`
+	ApprovedBy     string     `yaml:"approved_by,omitempty"`
+	ProvisionedBy  string     `yaml:"provisioned_by,omitempty"`
+	ApprovalTicket string     `yaml:"approval_ticket,omitempty"`
+	Signature      string     `yaml:"signature,omitempty"`
+	History        []string   `yaml:"history,omitempty"`
+}
+
+// StatePhase tracks the manifest's position in the provisioning lifecycle.
+type StatePhase string
+
+const (
+	StatePhaseDraft       StatePhase = "draft"
+	StatePhaseRequested   StatePhase = "requested"
+	StatePhaseApproved    StatePhase = "approved"
+	StatePhaseProvisioned StatePhase = "provisioned"
+	StatePhaseRunning     StatePhase = "running"
+	StatePhasePaused      StatePhase = "paused"
+	StatePhaseFired       StatePhase = "fired"
+)
+
+var validStatePhases = map[StatePhase]bool{
+	StatePhaseDraft:       true,
+	StatePhaseRequested:   true,
+	StatePhaseApproved:    true,
+	StatePhaseProvisioned: true,
+	StatePhaseRunning:     true,
+	StatePhasePaused:      true,
+	StatePhaseFired:       true,
 }
 
 var (
@@ -153,6 +226,17 @@ func (m *Manifest) Validate() error {
 	if !nameRE.MatchString(m.Name) {
 		return fmt.Errorf("manifest: name %q must match %s", m.Name, nameRE)
 	}
+	// Identity mode defaults to direct if unset.
+	if m.Identity.Mode == "" {
+		m.Identity.Mode = IdentityModeDirect
+	}
+	switch m.Identity.Mode {
+	case IdentityModeDirect, IdentityModeIdPManaged:
+		// ok
+	default:
+		return fmt.Errorf("manifest: identity.mode %q is not recognized (use %q or %q)",
+			m.Identity.Mode, IdentityModeDirect, IdentityModeIdPManaged)
+	}
 	if !filepath.IsAbs(m.Runtime.Workspace) {
 		return fmt.Errorf("manifest: runtime.workspace %q must be an absolute path", m.Runtime.Workspace)
 	}
@@ -199,30 +283,33 @@ func (m *Manifest) Validate() error {
 			return fmt.Errorf("manifest: handler %q has unknown type %q", name, h.Type)
 		}
 	}
+	if m.State != nil && m.State.Phase != "" && !validStatePhases[m.State.Phase] {
+		return fmt.Errorf("manifest: state.phase %q is not recognized", m.State.Phase)
+	}
 
-	// Stage 4: cross-references.
+	// Stage 4: cross-references against the adapter registry.
+	registry, err := adapters.All()
+	if err != nil {
+		return fmt.Errorf("manifest: load adapter registry: %w", err)
+	}
 	for integration := range m.Scopes {
-		if !reservedIntegrations[integration] {
-			return fmt.Errorf("manifest: scopes uses unknown integration %q (not in reserved set)", integration)
+		spec, ok := registry[integration]
+		if !ok {
+			return fmt.Errorf("manifest: scopes uses unknown integration %q (registered adapters: %v)",
+				integration, adapters.Names())
 		}
-		// Every scoped integration must have a matching identity field.
-		switch integration {
-		case "github":
-			if m.Identity.GitHubUsername == "" {
-				return fmt.Errorf("manifest: scopes.github requires identity.github_username")
-			}
-		case "slack":
-			if m.Identity.SlackHandle == "" {
-				return fmt.Errorf("manifest: scopes.slack requires identity.slack_handle")
-			}
-		case "linear":
-			if m.Identity.LinearUser == "" {
-				return fmt.Errorf("manifest: scopes.linear requires identity.linear_user")
-			}
-		case "email":
-			if m.Identity.Email == "" {
-				return fmt.Errorf("manifest: scopes.email requires identity.email")
-			}
+		// Every scoped integration must have a populated identity field
+		// matching what the adapter declared it needs.
+		val, known := m.Identity.fieldByName(spec.IdentityField)
+		if !known {
+			// The adapter declared an identity_field that the Identity
+			// struct does not know about. This is a build-time bug in
+			// the adapter manifest, not a user error.
+			return fmt.Errorf("manifest: adapter %q declares identity_field=%q but the parser does not know that field (likely an adapter manifest bug)",
+				integration, spec.IdentityField)
+		}
+		if val == "" {
+			return fmt.Errorf("manifest: scopes.%s requires identity.%s", integration, spec.IdentityField)
 		}
 	}
 
@@ -240,4 +327,22 @@ func (m *Manifest) Validate() error {
 	}
 
 	return nil
+}
+
+// Warnings returns non-fatal advisory messages about the manifest.
+//
+// Warnings are emitted for v0.2 features that the manifest declares but
+// the v0.1 runtime cannot honor — currently identity.mode=idp-managed
+// and any populated state block. They are not errors: validation still
+// passes. The intent is to let users author manifests targeted at the
+// v0.2 design today without breaking the v0.1 validate command.
+func (m *Manifest) Warnings() []string {
+	var ws []string
+	if m.Identity.Mode == IdentityModeIdPManaged {
+		ws = append(ws, "identity.mode=idp-managed is parsed but not implemented in v0.1; the v0.1 runtime will refuse to hire this contractor. See docs/enterprise-provisioning.md §5.2.")
+	}
+	if m.State != nil && (m.State.Phase != "" || m.State.RequestedBy != "" || m.State.ApprovedBy != "" || m.State.ProvisionedBy != "" || m.State.ApprovalTicket != "" || m.State.Signature != "" || len(m.State.History) > 0) {
+		ws = append(ws, "state block is defined but ignored by the v0.1 runtime; v0.2 will populate it via procuracy request/approve/hire. See docs/enterprise-provisioning.md §5.1.")
+	}
+	return ws
 }

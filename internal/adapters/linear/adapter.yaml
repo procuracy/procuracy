@@ -1,0 +1,11 @@
+name: linear
+description: Linear — issues, projects, comments, transitions
+identity_field: linear_user
+verbs:
+  - read
+  - comment
+  - transition
+  - assign
+  - create
+  - none
+status: planned

@@ -90,3 +90,51 @@ func TestValidateBadFile(t *testing.T) {
 		t.Fatalf("validate bad file exit = %d, want 1", code)
 	}
 }
+
+func TestValidateEmitsV02Warnings(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "procuracy.yaml")
+	if err := os.WriteFile(path, []byte(`
+name: aria
+identity:
+  mode: idp-managed
+  github_username: aria-acme
+scopes:
+  github:
+    - read:org/*
+triggers:
+  - on: github.pull_request.merged
+    do: review
+runtime:
+  engine: claude-code
+  workspace: /tmp/aria
+  cost_limit_daily_usd: 50
+  cost_limit_per_task_usd: 5
+handlers:
+  review:
+    type: claude_code
+    prompt: prompts/review.md
+state:
+  phase: requested
+  requested_by: alice@company.com
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errBuf bytes.Buffer
+	if code := run([]string{"validate", path}, &out, &errBuf); code != 0 {
+		t.Fatalf("validate exit = %d, stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "ok: aria") {
+		t.Errorf("missing ok line: %q", out.String())
+	}
+	stderr := errBuf.String()
+	if !strings.Contains(stderr, "warning:") {
+		t.Errorf("expected warnings in stderr, got: %q", stderr)
+	}
+	if !strings.Contains(stderr, "idp-managed") {
+		t.Errorf("expected idp-managed warning, got: %q", stderr)
+	}
+	if !strings.Contains(stderr, "state block") {
+		t.Errorf("expected state block warning, got: %q", stderr)
+	}
+}
