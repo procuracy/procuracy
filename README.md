@@ -36,10 +36,15 @@ runtime:
 ```
 
 ```bash
-$ procuracy hire ./aria/        # provisions all accounts (v0.1)
-$ procuracy start ./aria/       # runs the agent loop (v0.1)
-$ procuracy logs aria           # tails the audit log (v0.1)
-$ procuracy fire aria           # revokes everything in <30s (v0.1)
+# Working today
+$ procuracy validate ./aria/procuracy.yaml   # full v0.1 schema + scope verbs validated
+$ procuracy verify ./aria/audit.jsonl        # hash-chain integrity check on the audit log
+
+# Coming with v0.1 release
+$ procuracy hire ./aria/        # provisions all accounts
+$ procuracy start ./aria/       # runs the agent loop
+$ procuracy logs aria           # tails the audit log
+$ procuracy fire aria           # revokes everything in <30s
 ```
 
 **Five minutes from `git clone` to a working AI contractor on your repo.** That is the goal of v0.1.
@@ -54,12 +59,15 @@ procuracy is **alpha**. The manifest spec is stable. The CLI surface is locked. 
 |---|---|
 | Manifest spec ([`docs/manifest-spec.md`](docs/manifest-spec.md)) | ✅ Stable, v0.1 |
 | Manifest parser + validator (`procuracy validate`) | ✅ **Working today** |
-| CLI surface (`hire start pause update logs report fire auth init`) | 🟡 Stub commands defined, exit 64 with `not implemented` |
-| Capability enforcement layer | 🔨 Next |
-| Audit log (hash-chained JSONL) | 🔨 Next |
-| GitHub adapter | 🔨 Next |
+| Adapter registration (drop-in YAML manifests in [`internal/adapters/`](internal/adapters/)) | ✅ **Working today** — `github`, `slack`, `linear`, `jira`, `email` registered |
+| Capability enforcement layer ([`internal/capability/`](internal/capability/)) — scope parser, glob matcher, deny-overrides-grant, stage 5 validation | ✅ **Working today** |
+| Audit log ([`docs/audit-log.md`](docs/audit-log.md)) — hash-chained JSONL writer, tamper-evident, concurrent-safe | ✅ **Working today** |
+| Audit log verifier (`procuracy verify`) | ✅ **Working today** |
+| Enterprise provisioning trajectory ([`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) — IdP-first identity, group-based scoping, three-actor request/approve/provision flow, Jira tier-1, AWS multi-account, SCIM-aware termination | 📋 v0.2 design locked; spec stubs (`identity.mode`, `state`) shipped today as non-breaking insurance |
+| Lifecycle CLI surface (`hire start pause update logs report fire auth init`) | 🟡 Stub commands defined, exit 64 with `not implemented` |
+| GitHub adapter (the first real adapter, scoped via the capability layer, writing to the audit log) | 🔨 Next |
 | First end-to-end template (`stale-pr-nudger`) | 🔨 Next |
-| Slack / Linear / Jira / Notion adapters | 📋 After v0.1 |
+| Slack / Linear / Jira adapters | 📋 After v0.1 |
 
 If you're evaluating procuracy for production use, **wait for v0.1**. If you're evaluating it for *contributing* — adapters and templates are the highest-leverage work and we'd love your PRs. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
@@ -394,16 +402,19 @@ Frameworks are libraries for building agents from scratch. procuracy is the *org
 | Phase | What | Status |
 |---|---|---|
 | **0. Foundation** | README, manifest spec, parser+validator, CLI skeleton, `validate` command, CI | ✅ Done |
-| **1. Capability layer** | `internal/capability/` — adapters constructed from parsed scopes | 🔨 Next |
-| **2. Audit log** | `docs/audit-log.md` + `internal/audit/` — hash-chained JSONL writer | 🔨 Next |
-| **3. GitHub adapter** | First real adapter, scoped via the capability layer | 🔨 Next |
-| **4. First vertical slice** | `examples/stale-pr-nudger/` end-to-end: manifest → OAuth → scope → Claude Code → audit | 🔨 Next |
-| **5. v0.1 release** | Tag, signed binaries, install script, demo instance | 📋 Planned |
-| **6. Slack adapter** | Audit-mirror use case (lowest stakes) | 📋 Planned |
-| **7. Linear adapter** | Issue-triggered contractors | 📋 Planned |
-| **8. OpenHands engine** | Second engine adapter, proves the engine interface | 📋 Planned |
+| **0.5. Polish + infra** | SVG banner, Mermaid diagrams, honest Status table, CI on Linux+macOS, dependabot, issue/PR templates, real `CONTRIBUTING.md` | ✅ Done |
+| **0.75. Enterprise design note** | [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md) — official position on the gap and the v0.2 trajectory | ✅ Done |
+| **1. v0.1 spec stubs** | `identity.mode` (`direct` / `idp-managed`) + top-level `state` block + open adapter registration mechanism. Non-breaking insurance so the v0.2 enterprise work is purely additive. | ✅ Done |
+| **2. Capability layer** | `internal/capability/` — scope parser, glob matcher, `Set` with deny-overrides-grant, stage 5 of `procuracy validate`. Verbs unknown to an adapter are caught at validate time. | ✅ Done |
+| **3. Audit log** | [`docs/audit-log.md`](docs/audit-log.md) + `internal/audit/` — hash-chained JSONL writer with single-mutex concurrency, tamper detection at byte / hash field / prev_hash field, reopen-on-existing re-verifies. `procuracy verify` exposes it on the CLI. | ✅ Done |
+| **4. GitHub adapter** | First real adapter, constructed from a parsed `capability.Set`, writing to the audit log, exercising the full pipeline | 🔨 **Next** |
+| **5. First vertical slice** | `examples/stale-pr-nudger/` end-to-end: manifest → OAuth → scope → Claude Code → audit | 🔨 Next |
+| **6. v0.1 release** | Tag, goreleaser for signed static binaries, install script, demo | 📋 Planned |
+| **7. Slack adapter** | Audit-mirror use case (lowest stakes) | 📋 Planned |
+| **8. Linear adapter** | Issue-triggered contractors | 📋 Planned |
+| **v0.2 — Enterprise** | IdP integration (Okta first), `groups.yaml`, `procuracy request/approve` flow, Jira tier-1 adapter, AWS multi-account adapter, SCIM-aware termination, data classification | 📋 Designed (see [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) |
 
-**v0.1 cut decision:** ship one vertical slice — `stale-pr-nudger` on GitHub only, Claude Code engine only, JSONL audit only — before adding any second adapter. Nothing ships until that one path works end-to-end.
+**v0.1 cut decision:** ship one vertical slice — `stale-pr-nudger` on GitHub only, Claude Code engine only, JSONL audit only — before adding any second adapter. The trust-infrastructure spine (manifest spec → parser → adapter registry → capability layer → audit log) is now complete; only the GitHub adapter and the first template stand between today and a working end-to-end demo.
 
 ---
 
