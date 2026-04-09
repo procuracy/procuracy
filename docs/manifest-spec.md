@@ -110,12 +110,25 @@ scopes:
 
 ### Scope grammar
 
-Each scope string is `<verb>:<resource>` or `<verb>:none`.
+Each scope string is `<verb>:<resource>` or `<verb>:none`. The verb is everything up to the **last** colon; the resource is everything after. This last-colon rule is what allows multi-segment verbs like `pr:create` — the verb itself may contain colons, the resource may not.
 
-- **Verbs** are integration-specific. The adapter publishes its supported verb set; unknown verbs fail validation. Common verbs: `read`, `write`, `comment`, `post`, `dm`, `pr:create`, `merge`, `transition`, `assign`.
-- **Resources** use glob syntax: `*` matches one path segment, `**` matches any depth. `{a,b,c}` is alternation.
-- **`<verb>:none`** is an explicit denial. Denials always win over grants — even a wildcard grant cannot override a `none` for the same verb.
+- **Verbs** are integration-specific. The adapter publishes its supported verb set in its `verbs:` field; **unknown verbs are a hard validation error in v0.1** (stage 5 — implemented in `internal/capability`). The error message lists the allowed verbs so typos are obvious. Common verbs: `read`, `write`, `comment`, `post`, `dm`, `pr:create`, `merge`, `transition`, `assign`.
+- **Resources** use glob syntax with two operators:
+  - `*` matches a single non-empty path segment (anything between slashes)
+  - `**` matches **zero or more** path segments (Bash globstar semantics — `org/**` matches both `org` and `org/foo/bar/baz`)
+  - All other characters are matched literally
+- **`<verb>:none`** is an explicit denial. Denials always win over grants — even a wildcard grant cannot override a `none` for the same verb. Verbs that are denied do not appear in the resolved capability set's `GrantedVerbs` list, so they are structurally absent from the constructed adapter.
 - **Order does not matter.** Scopes are a set, not a list.
+
+#### Glob limitations in v0.1
+
+The following glob features are **not supported in v0.1** and will be added when an adapter actually needs them:
+
+- **Brace expansion** (`{a,b,c}`) — the README example `transition:project/eng/{Todo,InProgress,InReview,Done}` parses successfully but matches literally, not as alternation. To get the same effect today, declare each transition as a separate scope, or use `transition:project/eng/*`.
+- **Character classes** (`[abc]`)
+- **Intra-segment wildcards** (`foo*bar`) — `*` must be a whole path segment
+
+If your adapter needs any of these, file an issue with the use case. They are deliberately deferred, not refused.
 
 ### Adapter registration
 
@@ -283,9 +296,9 @@ When `procuracy` loads a manifest it runs these checks in order. The first faili
 2. **Required fields** — `name`, `identity`, `scopes`, `triggers`, `runtime`, `handlers` are present.
 3. **Field shape** — `name` matches the regex, `identity.mode` is `direct` or `idp-managed`, `state.phase` (if set) is one of the recognized phases, cron strings parse, paths are absolute where required, costs are positive.
 4. **Cross-references** — every `triggers[*].do` resolves to a handler; every `scopes.<integration>` resolves against the adapter registry and has the identity field that adapter declares; every handler is referenced.
-5. **Adapter validation** — each scope verb is recognized by its adapter, each trigger event identifier is recognized. (Not implemented in v0.1; the registry is loaded but verb-level validation is deferred to the capability layer.)
+5. **Capability resolution** — every scope string parses (`<verb>:<resource>` or `<verb>:none`), every verb is in the matching adapter's declared `verbs:` set, deny markers are recorded. Implemented in `internal/capability`. Returns a `Set` the runtime later passes to adapter constructors. Trigger event identifier validation is still deferred to a future stage 6 (adapter-side, when the first real adapter lands).
 
-Stages 1–4 run in pure Go and require no network. Stage 5 requires the adapter registry but no live credentials.
+All stages run in pure Go and require no network. The adapter registry and capability resolver are bundled into the binary at build time via `embed.FS`.
 
 After validation, the parser may also produce **non-fatal warnings** via `Manifest.Warnings()` for v0.2-targeted features that the v0.1 runtime cannot honor — currently `identity.mode=idp-managed` and any populated `state` block. Warnings do not fail validation; they are surfaced by `procuracy validate` on stderr after the `ok:` line so authors can iterate on v0.2 manifests today.
 

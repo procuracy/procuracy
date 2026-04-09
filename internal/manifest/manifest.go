@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/procuracy/procuracy/internal/adapters"
+	"github.com/procuracy/procuracy/internal/capability"
 )
 
 // Manifest is the root of a procuracy.yaml file.
@@ -84,9 +85,14 @@ func (i *Identity) fieldByName(name string) (value string, known bool) {
 	return "", false
 }
 
-// Scopes is the capability declaration. Keys are integration names; values
-// are lists of scope strings (see docs/manifest-spec.md §scopes).
-type Scopes map[string][]string
+// Scopes is the capability declaration. Keys are integration names;
+// values are lists of scope strings (see docs/manifest-spec.md §scopes).
+//
+// The type is owned by internal/capability — that is the package that
+// interprets it. This alias keeps the historical name available on the
+// manifest package for callers who think of scopes as part of the
+// manifest schema.
+type Scopes = capability.Scopes
 
 // Trigger describes when the contractor wakes up.
 type Trigger struct {
@@ -324,6 +330,16 @@ func (m *Manifest) Validate() error {
 		if !referenced[name] {
 			return fmt.Errorf("manifest: handler %q is defined but never referenced by a trigger", name)
 		}
+	}
+
+	// Stage 5: capability resolution. Parse every scope string, validate
+	// every verb against its adapter's declared verb set, record deny
+	// markers, and produce a Set the runtime can later pass to adapter
+	// constructors. The Set itself is discarded here — Validate is
+	// concerned only with whether resolution succeeds. The runtime will
+	// re-Resolve when it actually constructs adapters.
+	if _, err := capability.Resolve(m.Scopes); err != nil {
+		return fmt.Errorf("manifest: %w", err)
 	}
 
 	return nil
