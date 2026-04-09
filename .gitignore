@@ -1,0 +1,53 @@
+# Binaries
+/procuracy
+/dist/
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+go.work
+go.work.sum
+vendor/
+
+# Local state — never commit these
+.audit/
+*.audit.jsonl
+contractors/*/state/
+contractors/*/.tokens
+contractors/*/secrets/
+*.pem
+*.key
+*.token
+
+# Local development
+.env
+.env.local
+.envrc
+.direnv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Test artifacts
+coverage.out
+coverage.html
+*.coverprofile
+
+# Docs build
+/site/
+/docs/_build/
+
+# Node (for docs site if using one)
+node_modules/
+package-lock.json
+yarn.lock
