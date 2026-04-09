@@ -63,6 +63,8 @@ procuracy is **alpha**. The manifest spec is stable. The CLI surface is locked. 
 
 If you're evaluating procuracy for production use, **wait for v0.1**. If you're evaluating it for *contributing* — adapters and templates are the highest-leverage work and we'd love your PRs. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
+> **⚠️ Considering procuracy for an enterprise (>30 people, IdP-managed, multi-actor provisioning)?** The single-operator OAuth flow described in this README **does not fit your environment**, and we are not pretending otherwise. Please read [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md) before assuming `procuracy hire` will work for you. It captures the gap between procuracy v0.1 and real enterprise reality, and lays out the v0.2+ trajectory for IdP-first identity, group-based scoping, request/approve/provision separation of duties, Jira as a tier-1 adapter, AWS multi-account, and SCIM-aware termination.
+
 ---
 
 ## Try it in 60 seconds
