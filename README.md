@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" alt="procuracy — hire AI contractors into your engineering team" width="100%"/>
+<img src="docs/assets/banner.svg" alt="procuracy — trust infrastructure for AI agents" width="100%"/>
 
 <br/>
 
@@ -8,76 +8,86 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/procuracy/procuracy?style=flat-square&logo=go)](go.mod)
 [![Go Report Card](https://goreportcard.com/badge/github.com/procuracy/procuracy?style=flat-square)](https://goreportcard.com/report/github.com/procuracy/procuracy)
 [![License](https://img.shields.io/github/license/procuracy/procuracy?style=flat-square)](LICENSE)
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange?style=flat-square)](#status)
+[![Status: Alpha](https://img.shields.io/badge/status-v0.1_alpha-orange?style=flat-square)](#status)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](CONTRIBUTING.md)
 
-**[Try it in 60 seconds](#try-it-in-60-seconds)** · **[Why](#why-procuracy)** · **[How it works](#how-it-works)** · **[Templates](#templates)** · **[Security](#security-model)** · **[Comparisons](#comparisons)** · **[Roadmap](#roadmap)**
+**[Try it in 60 seconds](#try-it-in-60-seconds)** · **[Why](#who-is-procuracy-for)** · **[How it works](#how-it-works)** · **[Templates](#templates)** · **[Security](#security-model)** · **[Comparisons](#comparisons)** · **[Roadmap](#roadmap)**
 
 </div>
 
 ---
 
-> **One declarative file describes an AI contractor: who they are, what they can touch, when they work, what they cost, and how to fire them.**
-> No new dashboard. No SaaS dependency. No telemetry. Your infra, your data, your kill switch.
+> **Your team deploys AI agents across repos. procuracy makes sure they do only what they're allowed to, and you can prove it.**
+>
+> One manifest per agent. Scoped capabilities. Hash-chained audit log. Kill switch. No SaaS, no dashboard, no phone-home.
 
 ```yaml
-# procuracy.yaml — the contractor in one file
+# procuracy.yaml — what the agent can do, versioned in git, reviewed in PRs
 name: aria
-identity:
-  github_username: aria-acme
 scopes:
   github:
     - read:org/*
-    - write:org/docs/**       # path-scoped writes only
-    - merge:none              # explicit denial — adapter physically cannot merge
+    - write:org/docs/**
+    - merge:none              # the agent CLI will not have a merge tool
 runtime:
   engine: claude-code
-  cost_limit_daily_usd: 50    # over-budget LLM calls are BLOCKED, not logged
+  cost_limit_per_task_usd: 5  # over-budget calls are BLOCKED, not logged
 ```
 
 ```bash
-# Try procuracy in 30 seconds — no accounts, no config
-$ procuracy demo               # generates a sample contractor + audit log
-$ procuracy init               # interactively scaffold your own contractor
+# Run an agent with trust guardrails
+$ procuracy run ./aria/
+procuracy: running aria (engine=claude-code, model=claude-sonnet-4-6, budget=$5.00)
+procuracy: completed (cost=$0.34, turns=8, duration=45000ms)
+procuracy: audit log at ./aria/audit.jsonl (14 entries)
 
-# Working today
-$ procuracy validate ./aria/procuracy.yaml   # full v0.1 schema + scope verbs validated
-$ procuracy verify ./aria/audit.jsonl        # hash-chain integrity check on the audit log
-
-# Coming with v0.1 release
-$ procuracy hire ./aria/        # provisions all accounts
-$ procuracy start ./aria/       # runs the agent loop
-$ procuracy logs aria           # tails the audit log
-$ procuracy fire aria           # revokes everything in <30s
+# Verify the audit trail hasn't been tampered with
+$ procuracy verify ./aria/audit.jsonl
+ok: 14 entries verified
 ```
 
-**Five minutes from `git clone` to a working AI contractor on your repo.** That is the goal of v0.1.
+**procuracy wraps agent CLIs you already use (Claude Code, Codex, OpenClaw, OpenCode) with the governance layer that makes them deployable in environments where accountability matters.**
 
 ---
 
-## ⚠️ Status
+## Who is procuracy for
 
-procuracy is **alpha**. The manifest spec is stable. The CLI surface is locked. **Most subcommands are not yet implemented.**
+**Not for solo developers.** If you're one person running `claude` on your laptop, just use `claude` directly. You don't need governance infrastructure.
+
+**For teams deploying AI agents across repos where you need to answer:**
+
+- "What can agent X touch?" → Read the manifest. It's 20 lines of YAML, versioned in git.
+- "Prove agent X can't merge to main" → `merge:none` in the manifest. The agent CLI is spawned without a merge tool. Not "instructed not to" — *cannot*.
+- "What did agent X do on the prod repo last Tuesday?" → `procuracy verify ./aria/audit.jsonl`. One hash-chained file per agent, tamper-evident, exportable for compliance.
+- "An agent is misbehaving, revoke everything" → `procuracy fire aria`. One command.
+- "We need consistent policies across 5 agents on 12 repos" → 5 manifests, reviewed in PRs, enforced at spawn time. No drift.
+
+If your security team asks "how do we know the AI agents are doing what we said?" and you don't have an answer, procuracy is the answer.
+
+---
+
+## Status
+
+procuracy is **v0.1 alpha**. The full trust pipeline works end-to-end: manifest → capability resolution → agent spawn with constrained tools → hash-chained audit log → verification.
 
 | Capability | State |
 |---|---|
-| Manifest spec ([`docs/manifest-spec.md`](docs/manifest-spec.md)) | ✅ Stable, v0.1 |
-| Manifest parser + validator (`procuracy validate`) | ✅ **Working today** |
-| Adapter registration (drop-in YAML manifests in [`internal/adapters/`](internal/adapters/)) | ✅ **Working today** — `github`, `slack`, `linear`, `jira`, `email` registered |
-| Capability enforcement layer ([`internal/capability/`](internal/capability/)) — scope parser, glob matcher, deny-overrides-grant, stage 5 validation | ✅ **Working today** |
-| Audit log ([`docs/audit-log.md`](docs/audit-log.md)) — hash-chained JSONL writer, tamper-evident, concurrent-safe | ✅ **Working today** |
-| Audit log verifier (`procuracy verify`) | ✅ **Working today** |
-| Interactive scaffolding (`procuracy init`) — 7 questions → valid manifest + starter prompt | ✅ **Working today** |
-| Hands-on demo (`procuracy demo`) — sample contractor + audit log with tamper-detection walkthrough | ✅ **Working today** |
-| Enterprise provisioning trajectory ([`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) — IdP-first identity, group-based scoping, three-actor request/approve/provision flow, Jira tier-1, AWS multi-account, SCIM-aware termination | 📋 v0.2 design locked; spec stubs (`identity.mode`, `state`) shipped today as non-breaking insurance |
-| Lifecycle CLI surface (`hire start pause update logs report fire auth`) | 🟡 Stub commands defined, exit 64 with `not implemented` |
-| GitHub adapter (the first real adapter, scoped via the capability layer, writing to the audit log) | 🔨 Next |
-| First end-to-end template (`stale-pr-nudger`) | 🔨 Next |
-| Slack / Linear / Jira adapters | 📋 After v0.1 |
+| `procuracy run <dir>` — run an agent with manifest-derived guardrails | ✅ Working |
+| `procuracy validate` — 5-stage manifest validation (schema, scopes, capability verbs) | ✅ Working |
+| `procuracy verify` — hash-chain integrity verification on audit logs | ✅ Working |
+| `procuracy init` — interactive manifest scaffolding (7 questions → valid manifest) | ✅ Working |
+| `procuracy demo` — zero-config trial with tamper-detection walkthrough | ✅ Working |
+| Manifest spec ([`docs/manifest-spec.md`](docs/manifest-spec.md)) | ✅ Stable |
+| Capability enforcement ([`internal/capability/`](internal/capability/)) — scope parser, glob matcher, deny-overrides-grant | ✅ Working |
+| Audit log ([`docs/audit-log.md`](docs/audit-log.md)) — hash-chained JSONL, tamper-evident, concurrent-safe | ✅ Working |
+| Claude Code engine wrapper ([`internal/engine/claudecode/`](internal/engine/claudecode/)) | ✅ Working |
+| Adapter registry (drop-in YAML manifests for `github`, `slack`, `linear`, `jira`, `email`) | ✅ Working |
+| First template ([`examples/stale-pr-nudger/`](examples/stale-pr-nudger/)) | ✅ Shipped |
+| v0.2 enterprise trajectory ([`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) — IdP-first identity, group-based scoping, three-actor approval flow | 📋 Designed |
+| Lifecycle commands (`hire`, `fire`, `start`, `pause`) | 📋 v0.2 |
+| Engine wrappers for Codex, OpenClaw, OpenCode | 📋 v0.2 |
 
-If you're evaluating procuracy for production use, **wait for v0.1**. If you're evaluating it for *contributing* — adapters and templates are the highest-leverage work and we'd love your PRs. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-> **⚠️ Considering procuracy for an enterprise (>30 people, IdP-managed, multi-actor provisioning)?** The single-operator OAuth flow described in this README **does not fit your environment**, and we are not pretending otherwise. Please read [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md) before assuming `procuracy hire` will work for you. It captures the gap between procuracy v0.1 and real enterprise reality, and lays out the v0.2+ trajectory for IdP-first identity, group-based scoping, request/approve/provision separation of duties, Jira as a tier-1 adapter, AWS multi-account, and SCIM-aware termination.
+> **Enterprise (>30 people, IdP-managed, multi-actor provisioning)?** Read [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md) — it captures the gap between v0.1 and real enterprise reality, and the v0.2+ trajectory.
 
 ---
 
@@ -85,166 +95,46 @@ If you're evaluating procuracy for production use, **wait for v0.1**. If you're 
 
 ### Prerequisites
 
-- **Go 1.25+** (only build dependency — single static binary, zero runtime deps)
-- A terminal
+- **Go 1.25+** — single static binary, zero runtime deps
+- **Claude Code CLI** (`claude` on PATH) — required for `procuracy run`
 
 ### 1. Install
 
 ```bash
 go install github.com/procuracy/procuracy/cmd/procuracy@latest
-procuracy version
-# → 0.1.0-dev
 ```
 
-> The `curl | sh` installer ships with v0.1. Until then, `go install` is the supported path.
-
-### 2. Run the demo (30 seconds)
+### 2. Try the demo (30 seconds)
 
 ```bash
 procuracy demo
 ```
 
-This generates a sample contractor manifest and a 6-entry hash-chained audit log (including a cost-blocked entry), then walks you through validating the manifest, verifying the audit chain, and corrupting a single byte to see tamper detection break the chain. No accounts, no config, no setup.
+Generates a sample manifest + a 6-entry hash-chained audit log (including a cost-blocked entry), then walks you through validating, verifying, and corrupting a byte to see the chain break. No accounts, no config.
 
-### 3. Scaffold your own contractor (60 seconds)
+### 3. Scaffold your own agent (60 seconds)
 
 ```bash
 procuracy init
 ```
 
-7 prompted questions — contractor name, GitHub repo, allowed operations, cost limits, trigger event, prompt file path — and you get a valid `procuracy.yaml` plus a starter prompt file. `merge:none` is added automatically if you didn't explicitly include merge. The generated manifest passes `procuracy validate` out of the box.
+7 questions → valid `procuracy.yaml` + starter prompt file. `merge:none` added automatically. Passes `procuracy validate` out of the box.
 
-### 4. Validate and iterate
+### 4. Run it
 
 ```bash
-procuracy validate ./aria/procuracy.yaml
-# → ok: aria (1 trigger(s), 1 handler(s))
+procuracy run ./aria/
 ```
 
-The validator runs the full v0.1 spec pipeline: strict YAML decoding, name regex, cost-limit sanity checks, scope verbs checked against the adapter's declared verb set, schedule/cron coupling, scope→identity cross-references, undefined-handler detection. Mistype a scope verb, swap an absolute path for a relative one, or set a per-task budget greater than the daily one — every error is caught at validate time, not at 3am in production.
+Loads the manifest, resolves capabilities, spawns Claude Code with a constrained tool set and cost limit, streams every action into a hash-chained audit log. Ctrl+C kills the agent immediately (SIGTERM).
 
-### 5. Verify an audit log
+### 5. Verify the audit trail
 
 ```bash
 procuracy verify ./aria/audit.jsonl
-# → ok: 1247 entries verified
 ```
 
-Single-pass hash-chain verification. Every modification to a past entry — even a single byte — breaks the hash of every entry that follows. This is what makes the audit log a trust layer, not just a log file.
-
-**That's everything that runs today.** The lifecycle commands (`hire`, `start`, `fire`, etc.) land with the GitHub adapter in the next release. The rest of this README is what v0.1 will deliver.
-
----
-
-## Why procuracy
-
-Every team that wants AI to do real work in their org rebuilds the same five things from scratch:
-
-1. **Identity** — who is this thing? What email? What GitHub account? What Slack handle?
-2. **Permissions** — what can it touch? How do we *prove* it can't touch the rest?
-3. **Triggers** — when does it run? Which webhooks? Which polling loops?
-4. **Audit** — what did it do? When? At what cost? Who approved it?
-5. **Termination** — how do we fire it cleanly when we don't trust it anymore?
-
-Every existing tool gives you *one or two* of these and asks you to figure out the rest:
-
-| Tool | Identity | Scope | Audit | Lifecycle | Open source |
-|---|:-:|:-:|:-:|:-:|:-:|
-| **Devin** (Cognition) | ✓ | ✓ | partial | partial | ✗ |
-| **GitHub Copilot Workspace** | ✗ | ✓ | partial | ✗ | ✗ |
-| **Sweep AI** | ✓ | partial | ✗ | ✗ | partial |
-| **OpenHands** | ✗ | ✗ | ✗ | ✗ | ✓ |
-| **Claude Code / Aider / Cursor** | ✗ | ✗ | ✗ | ✗ | partial |
-| **procuracy** | **✓** | **✓** | **✓** | **✓** | **✓** |
-
-**procuracy is the missing layer between "agent runtime" and "real org adoption."** It does not replace Claude Code, OpenHands, or any other agent — it *wraps* them with the org integration that makes them deployable in environments that need accountability, audit, and reversibility.
-
-If [Stripe](https://stripe.com) made it 5 minutes to accept payments and [Vercel](https://vercel.com) made it 5 minutes to deploy a website, **procuracy makes it 5 minutes to hire an AI contractor.**
-
----
-
-## The core idea: one file describes a contractor
-
-Everything an AI contractor *is* fits in a single declarative manifest. Like a `Dockerfile` defines a runnable image and a `package.json` defines a project, **`procuracy.yaml` defines an employee.**
-
-```yaml
-name: aria
-display_name: "Aria — Docs Maintainer"
-description: |
-  Keeps API docs in sync with code. Reviews stale PR descriptions.
-  Drafts changelog entries on release.
-
-# Who they are
-identity:
-  email: aria@acme.com
-  github_username: aria-acme
-  slack_handle: aria
-  linear_user: aria
-
-# What they can do (capability-based, enforced at the adapter layer)
-scopes:
-  github:
-    - read:org/*
-    - write:org/docs/**           # path-scoped writes
-    - pr:create:org/docs
-    - merge:none                  # explicit denial
-  slack:
-    - post:#engineering
-    - post:#aria-log
-    - dm:none
-  linear:
-    - read:project/eng
-    - comment:project/eng
-    - transition:project/eng/{Todo,InProgress,InReview,Done}
-
-# When they work
-triggers:
-  - on: linear.issue.assigned
-    where: assignee == 'aria'
-    do: handle_ticket
-  - on: github.pull_request.merged
-    where: files matches 'src/api/**'
-    do: review_doc_drift
-  - on: schedule
-    cron: "0 9 * * 1-5"
-    do: daily_standup
-
-# How they think
-runtime:
-  engine: claude-code              # also: openhands, openai-assistants, custom
-  model: claude-opus-4-6
-  workspace: /var/procuracy/aria
-  cost_limit_daily_usd: 50
-  cost_limit_per_task_usd: 5
-
-# What they do (handlers point to prompts or scripts)
-handlers:
-  handle_ticket:
-    type: claude_code
-    prompt: prompts/handle_ticket.md
-  review_doc_drift:
-    type: claude_code
-    prompt: prompts/review_doc_drift.md
-  daily_standup:
-    type: claude_code
-    prompt: prompts/daily_standup.md
-
-# Where humans watch the work
-observability:
-  audit_channel: "#aria-log"
-  metrics: prometheus://localhost:9090
-
-# How to fire them
-termination:
-  on_kill_signal:
-    - revoke: github_token
-    - revoke: slack_token
-    - revoke: linear_token
-    - archive_accounts: true
-    - notify: "#engineering"
-```
-
-**Read the file once and you know exactly who this contractor is, what it can touch, when it works, what it costs, and how to fire it.** Versioned in git, reviewed in PRs, auditable forever. Full schema reference: [`docs/manifest-spec.md`](docs/manifest-spec.md).
+Single-pass hash-chain verification. One tampered byte anywhere → the chain breaks. This is what makes the audit log a trust layer, not just a log file.
 
 ---
 
@@ -254,146 +144,125 @@ termination:
 
 ```mermaid
 flowchart LR
-    M["procuracy.yaml"] --> P["manifest parser<br/>(strict, validating)"]
-    P --> CL["capability layer<br/>(scopes → adapter methods)"]
-    CL --> AG["GitHub adapter"]
-    CL --> AS["Slack adapter"]
-    CL --> AL["Linear adapter"]
-    AG & AS & AL --> ENG["engine<br/>(claude-code, openhands, ...)"]
-    ENG --> CI{"cost interceptor"}
-    CI -->|under budget| LLM["LLM API"]
-    CI -.->|over budget| BL["BLOCK"]
-    AG & AS & AL --> AUD["audit log<br/>(JSONL + Slack mirror)"]
+    M["procuracy.yaml"] --> P["manifest parser<br/>(5-stage validation)"]
+    P --> CL["capability layer<br/>(scopes → tool constraints)"]
+    CL --> ENG["engine wrapper<br/>(spawns claude CLI)"]
+    ENG -->|"--allowedTools<br/>--max-budget-usd<br/>--append-system-prompt"| CC["Claude Code<br/>(or Codex, OpenClaw, OpenCode)"]
+    CC --> AUD["audit log<br/>(hash-chained JSONL)"]
+    ENG -->|stream-json events| AUD
+    ENG -.->|Ctrl+C / SIGTERM| KILL["kill switch"]
 
-    style BL fill:#ff5555,color:#fff,stroke:#ff5555
     style CL fill:#ff7b3a,color:#fff,stroke:#ff7b3a
     style AUD fill:#28c840,color:#fff,stroke:#28c840
+    style KILL fill:#ff5555,color:#fff,stroke:#ff5555
 ```
 
-The capability layer is the key trick: when an adapter is constructed for a specific contractor, it is *built from* that contractor's parsed scope set. A GitHub adapter for a contractor with `merge:none` literally does not have a `MergePR` method. The LLM cannot call a tool that does not exist — no clever prompt can change that.
+**procuracy does not replace Claude Code.** It *wraps* it. Claude Code already knows how to talk to GitHub, edit files, run commands — procuracy's job is to constrain *which* tools the agent gets, audit *what* it does, and kill it if needed.
 
-### Lifecycle
+The trust model is hybrid (and honest about its limits):
 
-```mermaid
-stateDiagram-v2
-    [*] --> Hired: procuracy hire
-    Hired --> Running: procuracy start
-    Running --> Paused: procuracy pause
-    Paused --> Running: procuracy start
-    Running --> Running: procuracy update<br/>(hot-reload manifest)
-    Running --> Fired: procuracy fire
-    Paused --> Fired: procuracy fire
-    Hired --> Fired: procuracy fire
-    Fired --> [*]: credentials revoked,<br/>accounts archived
+| Layer | Enforcement | Strength |
+|---|---|---|
+| **Tool-level** — which tools exist in the agent's toolbox | `--allowedTools` / `--disallowedTools` on the Claude Code CLI | Capability-based (structural) |
+| **Verb-level** — what the agent does within those tools | `--append-system-prompt` with deny rules from the manifest | Instruction-based (defeatable in theory) |
+| **Cost** — how much the agent can spend | `--max-budget-usd` from the manifest | Enforced by Claude Code |
+| **Audit** — verifiable record of everything | Hash-chained JSONL with `procuracy verify` | Tamper-evident (structural) |
+| **Kill switch** — immediate termination | SIGTERM to the child process | Instant (structural) |
+
+The tool-level and audit layers are structural — they can't be defeated by prompt injection. The verb-level layer is instruction-based and weaker; the audit log is the second line of defense that catches violations.
+
+### The manifest
+
+Everything an AI contractor *is* fits in a single declarative file. Like a `Dockerfile` defines a runnable image, **`procuracy.yaml` defines an agent's trust boundary.**
+
+```yaml
+name: aria
+display_name: "Aria — Docs Maintainer"
+
+identity:
+  github_username: aria-acme
+
+scopes:
+  github:
+    - read:org/*
+    - write:org/docs/**
+    - pr:org/docs
+    - merge:none                  # explicit denial — always wins over grants
+
+triggers:
+  - on: github.pull_request.merged
+    where: files matches 'src/api/**'
+    do: review_doc_drift
+
+runtime:
+  engine: claude-code
+  model: claude-sonnet-4-6
+  workspace: /tmp/procuracy/aria
+  cost_limit_daily_usd: 50
+  cost_limit_per_task_usd: 5
+
+handlers:
+  review_doc_drift:
+    type: claude_code
+    prompt: prompts/review.md
 ```
 
-A contractor has a clean start, middle, and end. procuracy owns the lifecycle so individual teams don't have to:
-
-```bash
-procuracy hire ./aria       # provisions all accounts
-procuracy start ./aria      # starts the runtime loop
-procuracy logs aria         # tails the audit log
-procuracy pause aria        # suspends without revoking
-procuracy update ./aria     # hot-reload the manifest
-procuracy report aria       # weekly performance summary
-procuracy fire aria         # revoke all credentials, archive accounts
-```
-
-Six commands. No web UI. No SaaS dashboard. **The Slack channel + the audit log is the dashboard.**
-
----
-
-## The four primitives
-
-### 1. Identity
-Real, scoped accounts on the tools your team already uses. **Not a shared bot.** Not a wrapper around a human's credentials. A separate, auditable, revocable principal — exactly like a human contractor.
-
-`procuracy hire` provisions:
-- Email (Google Workspace / Microsoft 365 / SendGrid)
-- GitHub user (via OAuth App, scoped permissions)
-- Slack bot user (via OAuth App, channel-scoped)
-- Linear / Jira / GitHub Issues user (via OAuth)
-
-You approve each integration in your browser. procuracy stores the tokens locally, never phones home.
-
-### 2. Scope
-The `scopes:` section of the manifest is a **capability declaration**. The runtime enforces it at the adapter layer — meaning the contractor's GitHub adapter physically does not have the API capability to merge PRs if `merge:none` is set. Not "instructed not to." *Cannot.*
-
-**Capability-based security, not instruction-based security.** No clever prompt injection can grant a capability the adapter does not have.
-
-### 3. Audit
-Every action the contractor takes is logged in two places:
-
-- **Slack** — `#aria-log` channel gets a real-time post for every tool call, every API hit, every file edit, every dollar spent
-- **Local JSONL** — append-only log on disk, hash-chained, exportable for compliance
-
-Want to know what aria did last Tuesday? Read the log. Want to give it to your security team? Export the JSONL. **The audit log is the trust layer.** Without it, no enterprise will adopt AI contractors. With it, your security review takes a day instead of a month.
-
-### 4. Lifecycle
-`procuracy fire` revokes every credential and archives every account in under 30 seconds. **Adoption is fearless because un-adoption is trivial.**
+Read the file once and you know exactly what this agent can touch, what it costs, and how to stop it. Versioned in git, reviewed in PRs, auditable forever. Full schema: [`docs/manifest-spec.md`](docs/manifest-spec.md).
 
 ---
 
 ## Templates
 
-The fastest way to adopt procuracy is to **fork a template**, not write a manifest from scratch. Templates are community-contributed, single-purpose, and one-command-clonable.
+The fastest way to adopt procuracy is to **fork a template**, not write a manifest from scratch. Templates are directories with a `procuracy.yaml` and prompts — no Go code required.
 
-Initial templates planned for v0.1:
+| Template | What it does | Risk level | Status |
+|---|---|---|---|
+| **[stale-pr-nudger](examples/stale-pr-nudger/)** | Comments on stale PRs, summarizes context for resumed reviews | Very low | ✅ Shipped |
+| **dependabot-merger** | Reviews and merges trivial dependabot PRs | Low | Planned |
+| **docs-maintainer** | Keeps docs in sync with code, drafts updates as PRs | Low | Planned |
+| **test-coverage-backfill** | Writes tests for files below a coverage threshold | Low | Planned |
+| **issue-triager** | Labels and triages incoming issues | Low | Planned |
 
-| Template | What it does | Risk level |
-|---|---|---|
-| **stale-pr-nudger** | Comments on stale PRs, summarizes context for resumed reviews | Very low |
-| **dependabot-merger** | Reviews and merges trivial dependabot PRs | Low |
-| **docs-maintainer** | Keeps docs in sync with code, drafts updates as PRs | Low |
-| **test-coverage-backfill** | Writes tests for files below a coverage threshold | Low |
-| **release-notes-writer** | Drafts changelog entries from merged PRs | Low |
-| **issue-triager** | Labels and triages incoming issues, asks clarifying questions | Low |
-
-Want to contribute a template? See [`CONTRIBUTING.md`](CONTRIBUTING.md). Templates are just directories with a `procuracy.yaml` and prompts — **no Go code required**.
+Want to contribute a template? See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
 ## Security model
 
-Trust is the only thing that matters in this category. procuracy is built around five non-negotiable security properties:
+procuracy is built around five security properties:
 
-1. **Capability-based, not instruction-based.** Permissions are enforced at the integration adapter layer, before any LLM is invoked. The agent's prompt cannot grant itself a capability that the adapter physically does not have.
+1. **Capability-based tool scoping.** The agent CLI is spawned with `--allowedTools` / `--disallowedTools` derived from the manifest. Tools not in the list don't exist in the agent's toolbox. This is structural — no prompt injection can add a tool that wasn't granted.
 
-2. **Failing closed on cost.** Every LLM API call is intercepted; if the daily or per-task budget would be exceeded, the call is *blocked*, not just logged. Cost runaways are impossible by construction.
+2. **Failing closed on cost.** `--max-budget-usd` is set from the manifest's cost limit. Over-budget calls are blocked by the agent CLI itself.
 
-3. **Tamper-evident audit.** Logs go to Slack (which the contractor cannot edit history of) AND to a local append-only JSONL with hash-chained entries. Forging history is detectable.
+3. **Tamper-evident audit.** Every action is recorded in a hash-chained JSONL file (`sha256(prev_hash || entry)`). Modifying a single byte in any past entry breaks the chain. `procuracy verify` checks the entire chain in one pass.
 
-4. **One-command revocation.** `procuracy fire` revokes every credential and archives every account in under 30 seconds. Adoption is fearless because un-adoption is trivial.
+4. **Kill switch.** Ctrl+C / SIGTERM kills the agent process immediately. No poll-based cancellation, no graceful shutdown negotiation. The process dies, the audit log records it.
 
-5. **No phone-home.** procuracy never sends data to a hosted service. All credentials, all logs, all manifests live on your infra. The framework is purely local.
+5. **No phone-home.** procuracy never sends data to a hosted service. All manifests, all logs, all credentials live on your infra.
 
-Found a vulnerability? Please report it via [GitHub Security Advisories](https://github.com/procuracy/procuracy/security/advisories/new), not a public issue.
+Found a vulnerability? Report it via [GitHub Security Advisories](https://github.com/procuracy/procuracy/security/advisories/new), not a public issue.
 
 ---
 
 ## Comparisons
 
-### vs. Devin (Cognition)
-Devin pioneered the "AI software engineer with its own identity" framing, and remains the closest existing thing to a procuracy-shaped product. Differences:
+| Tool | Scoped capabilities | Tamper-evident audit | Cost controls | Kill switch | Manifest-driven | Open source |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| **Multica** | ✗ (bypassPermissions) | ✗ | ✗ (tracking only) | ✗ (poll-based) | ✗ (DB-driven) | ✓ |
+| **Devin** | partial | partial | partial | partial | ✗ | ✗ |
+| **OpenHands** | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| **Raw Claude Code / Codex** | manual | ✗ | manual | Ctrl+C | ✗ | partial |
+| **procuracy** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
 
-- **Open source** vs. closed
-- **Multi-engine** (Claude Code, OpenHands, custom) vs. single proprietary engine
-- **Self-hosted** vs. SaaS-only
-- **Manifest-driven** vs. UI-driven
-- **No per-seat pricing** vs. ~$500/seat/month
-- **Forkable templates** vs. opaque
+### vs. Multica
+Multica is a great "Linear for human+agent teams" — board view, real-time streaming, skills marketplace, multi-runtime orchestration. But agents run with `--permission-mode bypassPermissions` hardcoded, there's no audit trail of individual agent actions, and no capability scoping. **Multica is where you manage agents. procuracy is how you trust them.**
 
-### vs. GitHub Copilot Workspace
-Copilot Workspace is GitHub-native: it lives in the GitHub UI, runs on GitHub infra, and has no identity outside GitHub. procuracy is the opposite — it gives the contractor a presence in *every* tool your team uses, lives on your infra, and is portable across providers.
+### vs. raw Claude Code / Codex
+If you're one person, just use the CLI directly. procuracy adds value when you have *multiple agents* across *multiple repos* and need *consistent policies*, *verifiable audit trails*, and *enforceable cost limits* — things a solo developer manages in their head but a team needs in a file.
 
-### vs. OpenHands / OpenDevin
-OpenHands is the closest OSS *runtime* (the "brain"). procuracy is not a runtime — it's the *body*: identity, scopes, lifecycle, audit. **They compose.** A future version of procuracy will list `engine: openhands` as a first-class option alongside `engine: claude-code`.
-
-### vs. Claude Code / Aider / Cursor (raw)
-These are session-bound pair programmers. You spawn one, talk to it, dismiss it. procuracy makes them long-running participants in an org's workflow. Same engine, totally different mental model.
-
-### vs. agent frameworks (LangGraph, CrewAI, AutoGen)
-Frameworks are libraries for building agents from scratch. procuracy is the *org-integration layer* that any framework-built agent can plug into. **You don't choose between them — you use them together.**
+### vs. Devin / OpenHands
+Runtimes. procuracy is not a runtime — it wraps runtimes. They compose: Claude Code (or OpenHands) provides the agent brain, procuracy provides the governance body.
 
 ---
 
@@ -401,20 +270,14 @@ Frameworks are libraries for building agents from scratch. procuracy is the *org
 
 | Phase | What | Status |
 |---|---|---|
-| **0. Foundation** | README, manifest spec, parser+validator, CLI skeleton, `validate` command, CI | ✅ Done |
-| **0.5. Polish + infra** | SVG banner, Mermaid diagrams, honest Status table, CI on Linux+macOS, dependabot, issue/PR templates, real `CONTRIBUTING.md` | ✅ Done |
-| **0.75. Enterprise design note** | [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md) — official position on the gap and the v0.2 trajectory | ✅ Done |
-| **1. v0.1 spec stubs** | `identity.mode` (`direct` / `idp-managed`) + top-level `state` block + open adapter registration mechanism. Non-breaking insurance so the v0.2 enterprise work is purely additive. | ✅ Done |
-| **2. Capability layer** | `internal/capability/` — scope parser, glob matcher, `Set` with deny-overrides-grant, stage 5 of `procuracy validate`. Verbs unknown to an adapter are caught at validate time. | ✅ Done |
-| **3. Audit log** | [`docs/audit-log.md`](docs/audit-log.md) + `internal/audit/` — hash-chained JSONL writer with single-mutex concurrency, tamper detection at byte / hash field / prev_hash field, reopen-on-existing re-verifies. `procuracy verify` exposes it on the CLI. | ✅ Done |
-| **4. GitHub adapter** | First real adapter, constructed from a parsed `capability.Set`, writing to the audit log, exercising the full pipeline | 🔨 **Next** |
-| **5. First vertical slice** | `examples/stale-pr-nudger/` end-to-end: manifest → OAuth → scope → Claude Code → audit | 🔨 Next |
-| **6. v0.1 release** | Tag, goreleaser for signed static binaries, install script, demo | 📋 Planned |
-| **7. Slack adapter** | Audit-mirror use case (lowest stakes) | 📋 Planned |
-| **8. Linear adapter** | Issue-triggered contractors | 📋 Planned |
-| **v0.2 — Enterprise** | IdP integration (Okta first), `groups.yaml`, `procuracy request/approve` flow, Jira tier-1 adapter, AWS multi-account adapter, SCIM-aware termination, data classification | 📋 Designed (see [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) |
-
-**v0.1 cut decision:** ship one vertical slice — `stale-pr-nudger` on GitHub only, Claude Code engine only, JSONL audit only — before adding any second adapter. The trust-infrastructure spine (manifest spec → parser → adapter registry → capability layer → audit log) is now complete; only the GitHub adapter and the first template stand between today and a working end-to-end demo.
+| Foundation | Manifest spec, parser, validator, CLI skeleton, CI | ✅ Done |
+| Capability layer | Scope parser, glob matcher, deny-overrides-grant, stage 5 validation | ✅ Done |
+| Audit log | Hash-chained JSONL writer + verifier, `procuracy verify` | ✅ Done |
+| Engine wrapper | Claude Code CLI orchestration, `procuracy run` | ✅ Done |
+| Low friction | `procuracy demo`, `procuracy init`, stale-pr-nudger template | ✅ Done |
+| **v0.1 release** | **Tag, goreleaser, install script** | **Next** |
+| Engine wrappers | Codex, OpenClaw, OpenCode | v0.2 |
+| Enterprise | IdP integration, `groups.yaml`, approval workflows, Jira/AWS adapters | v0.2 ([design](docs/enterprise-provisioning.md)) |
 
 ---
 
@@ -422,13 +285,12 @@ Frameworks are libraries for building agents from scratch. procuracy is the *org
 
 We need contributors most for:
 
-- **Adapters** for new integrations (Jira, Notion, GitLab, Bitbucket, Discord, Asana, Trello, etc.)
-- **Templates** for new contractor roles (the marketplace is the adoption flywheel)
-- **Engine adapters** for non-Claude runtimes (OpenHands, GPT, local models)
-- **Security review** of the capability enforcement layer
+- **Templates** for new contractor roles (the adoption flywheel)
+- **Engine wrappers** for Codex, OpenClaw, OpenCode
+- **Security review** of the capability enforcement and audit chain
 - **Documentation** in any language
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md). Open an issue before starting non-trivial work so we can avoid duplication.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md). Open an issue before starting non-trivial work.
 
 ---
 
@@ -438,19 +300,8 @@ Apache License 2.0 — see [`LICENSE`](LICENSE). Free for any use, including com
 
 ---
 
-## Acknowledgments
-
-Built on the shoulders of:
-
-- [Anthropic Claude](https://claude.com) and [Claude Code](https://claude.com/product/claude-code) — the engine that makes the contractor model possible
-- [Cognition Labs](https://cognition.ai) for pioneering the "AI engineer with identity" framing
-- [OpenHands](https://github.com/All-Hands-AI/OpenHands) and the OSS agent community for proving self-hosted agents work
-- The capability-based security tradition, from KeyKOS to Capsicum to the modern web's Permissions API
-
----
-
 <div align="center">
 
-**[Try it in 60 seconds](#try-it-in-60-seconds)** · **[Read the manifest spec](docs/manifest-spec.md)** · **[Contribute](CONTRIBUTING.md)** · **[Star the repo →](https://github.com/procuracy/procuracy)**
+**[Try it in 60 seconds](#try-it-in-60-seconds)** · **[Read the manifest spec](docs/manifest-spec.md)** · **[Browse templates](examples/)** · **[Contribute](CONTRIBUTING.md)** · **[Star the repo](https://github.com/procuracy/procuracy)**
 
 </div>
