@@ -1,0 +1,34 @@
+name: stale-pr-nudger
+display_name: "Stale PR Nudger"
+description: |
+  Reviews open PRs that have been inactive for more than 7 days.
+  Posts a summary comment with context to help reviewers resume.
+  Never merges, never approves — read-only plus comments.
+
+identity:
+  github_username: nudger-bot
+
+scopes:
+  github:
+    - read:org/*
+    - pr:org/*
+    - merge:none
+    - write:none
+    - admin:none
+
+triggers:
+  - on: schedule
+    cron: "0 9 * * 1-5"
+    do: nudge_stale_prs
+
+runtime:
+  engine: claude-code
+  model: claude-sonnet-4-6
+  workspace: /tmp/procuracy/stale-pr-nudger
+  cost_limit_daily_usd: 10
+  cost_limit_per_task_usd: 2
+
+handlers:
+  nudge_stale_prs:
+    type: claude_code
+    prompt: prompts/nudge.md

@@ -30,6 +30,7 @@ Commands:
   report <name>      Print a weekly performance summary
   fire <name>        Revoke all credentials and archive accounts
   auth <provider>    Authenticate to an integration (github|slack|linear|anthropic)
+  run <dir>          Run a contractor's handler with trust guardrails
   init               Scaffold a new contractor interactively
   demo               Generate a sample contractor + audit log for a hands-on trial
   validate <path>    Parse and validate a procuracy.yaml manifest
@@ -65,6 +66,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdValidate(rest, stdout, stderr)
 	case "verify":
 		return cmdVerify(rest, stdout, stderr)
+	case "run":
+		return cmdRun(rest, stdout, stderr)
 	case "demo":
 		return cmdDemo(stdout, stderr)
 	case "init":
