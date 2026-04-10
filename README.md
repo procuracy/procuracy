@@ -36,6 +36,10 @@ runtime:
 ```
 
 ```bash
+# Try procuracy in 30 seconds — no accounts, no config
+$ procuracy demo               # generates a sample contractor + audit log
+$ procuracy init               # interactively scaffold your own contractor
+
 # Working today
 $ procuracy validate ./aria/procuracy.yaml   # full v0.1 schema + scope verbs validated
 $ procuracy verify ./aria/audit.jsonl        # hash-chain integrity check on the audit log
@@ -63,8 +67,10 @@ procuracy is **alpha**. The manifest spec is stable. The CLI surface is locked. 
 | Capability enforcement layer ([`internal/capability/`](internal/capability/)) — scope parser, glob matcher, deny-overrides-grant, stage 5 validation | ✅ **Working today** |
 | Audit log ([`docs/audit-log.md`](docs/audit-log.md)) — hash-chained JSONL writer, tamper-evident, concurrent-safe | ✅ **Working today** |
 | Audit log verifier (`procuracy verify`) | ✅ **Working today** |
+| Interactive scaffolding (`procuracy init`) — 7 questions → valid manifest + starter prompt | ✅ **Working today** |
+| Hands-on demo (`procuracy demo`) — sample contractor + audit log with tamper-detection walkthrough | ✅ **Working today** |
 | Enterprise provisioning trajectory ([`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) — IdP-first identity, group-based scoping, three-actor request/approve/provision flow, Jira tier-1, AWS multi-account, SCIM-aware termination | 📋 v0.2 design locked; spec stubs (`identity.mode`, `state`) shipped today as non-breaking insurance |
-| Lifecycle CLI surface (`hire start pause update logs report fire auth init`) | 🟡 Stub commands defined, exit 64 with `not implemented` |
+| Lifecycle CLI surface (`hire start pause update logs report fire auth`) | 🟡 Stub commands defined, exit 64 with `not implemented` |
 | GitHub adapter (the first real adapter, scoped via the capability layer, writing to the audit log) | 🔨 Next |
 | First end-to-end template (`stale-pr-nudger`) | 🔨 Next |
 | Slack / Linear / Jira adapters | 📋 After v0.1 |
@@ -76,8 +82,6 @@ If you're evaluating procuracy for production use, **wait for v0.1**. If you're 
 ---
 
 ## Try it in 60 seconds
-
-What you can actually do today: install the binary, write a manifest, validate it. The full lifecycle commands land in v0.1.
 
 ### Prerequisites
 
@@ -94,45 +98,41 @@ procuracy version
 
 > The `curl | sh` installer ships with v0.1. Until then, `go install` is the supported path.
 
-### 2. Write a manifest
+### 2. Run the demo (30 seconds)
 
 ```bash
-cat > aria.yaml <<'EOF'
-name: aria
-display_name: "Aria — Docs Maintainer"
-identity:
-  github_username: aria-acme
-scopes:
-  github:
-    - read:org/*
-    - write:org/docs/**
-    - merge:none
-triggers:
-  - on: github.pull_request.merged
-    where: files matches 'src/api/**'
-    do: review_doc_drift
-runtime:
-  engine: claude-code
-  workspace: /tmp/procuracy/aria
-  cost_limit_daily_usd: 50
-  cost_limit_per_task_usd: 5
-handlers:
-  review_doc_drift:
-    type: claude_code
-    prompt: prompts/review.md
-EOF
+procuracy demo
 ```
 
-### 3. Validate it
+This generates a sample contractor manifest and a 6-entry hash-chained audit log (including a cost-blocked entry), then walks you through validating the manifest, verifying the audit chain, and corrupting a single byte to see tamper detection break the chain. No accounts, no config, no setup.
+
+### 3. Scaffold your own contractor (60 seconds)
 
 ```bash
-procuracy validate aria.yaml
+procuracy init
+```
+
+7 prompted questions — contractor name, GitHub repo, allowed operations, cost limits, trigger event, prompt file path — and you get a valid `procuracy.yaml` plus a starter prompt file. `merge:none` is added automatically if you didn't explicitly include merge. The generated manifest passes `procuracy validate` out of the box.
+
+### 4. Validate and iterate
+
+```bash
+procuracy validate ./aria/procuracy.yaml
 # → ok: aria (1 trigger(s), 1 handler(s))
 ```
 
-The validator runs the full v0.1 spec pipeline: strict YAML decoding, name regex, cost-limit sanity checks, schedule/cron coupling, scope→identity cross-references, undefined-handler detection. Mistype a field name, swap an absolute path for a relative one, or set a per-task budget greater than the daily one — every error is caught at validate time, not at 3am in production.
+The validator runs the full v0.1 spec pipeline: strict YAML decoding, name regex, cost-limit sanity checks, scope verbs checked against the adapter's declared verb set, schedule/cron coupling, scope→identity cross-references, undefined-handler detection. Mistype a scope verb, swap an absolute path for a relative one, or set a per-task budget greater than the daily one — every error is caught at validate time, not at 3am in production.
 
-That's everything that runs today. The rest of this README is what v0.1 will deliver.
+### 5. Verify an audit log
+
+```bash
+procuracy verify ./aria/audit.jsonl
+# → ok: 1247 entries verified
+```
+
+Single-pass hash-chain verification. Every modification to a past entry — even a single byte — breaks the hash of every entry that follows. This is what makes the audit log a trust layer, not just a log file.
+
+**That's everything that runs today.** The lifecycle commands (`hire`, `start`, `fire`, etc.) land with the GitHub adapter in the next release. The rest of this README is what v0.1 will deliver.
 
 ---
 
