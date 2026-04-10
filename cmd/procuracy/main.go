@@ -30,7 +30,8 @@ Commands:
   report <name>      Print a weekly performance summary
   fire <name>        Revoke all credentials and archive accounts
   auth <provider>    Authenticate to an integration (github|slack|linear|anthropic)
-  init               Scaffold a new contractor from a template
+  init               Scaffold a new contractor interactively
+  demo               Generate a sample contractor + audit log for a hands-on trial
   validate <path>    Parse and validate a procuracy.yaml manifest
   verify <path>      Verify a procuracy audit log JSONL file (chain integrity)
   version            Print the procuracy version
@@ -64,7 +65,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdValidate(rest, stdout, stderr)
 	case "verify":
 		return cmdVerify(rest, stdout, stderr)
-	case "hire", "start", "pause", "update", "logs", "report", "fire", "auth", "init":
+	case "demo":
+		return cmdDemo(stdout, stderr)
+	case "init":
+		return cmdInit(rest, os.Stdin, stdout, stderr)
+	case "hire", "start", "pause", "update", "logs", "report", "fire", "auth":
 		fmt.Fprintf(stderr, "procuracy %s: not implemented yet (tracked in docs/roadmap.md)\n", cmd)
 		return 64
 	default:

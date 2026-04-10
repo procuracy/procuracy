@@ -41,7 +41,7 @@ func TestRunUnknownCommand(t *testing.T) {
 }
 
 func TestRunStubsExitNonZero(t *testing.T) {
-	for _, cmd := range []string{"hire", "start", "fire", "auth", "init"} {
+	for _, cmd := range []string{"hire", "start", "fire", "auth"} {
 		var out, errBuf bytes.Buffer
 		if code := run([]string{cmd}, &out, &errBuf); code != 64 {
 			t.Errorf("%s exit = %d, want 64", cmd, code)
@@ -49,6 +49,94 @@ func TestRunStubsExitNonZero(t *testing.T) {
 		if !strings.Contains(errBuf.String(), "not implemented") {
 			t.Errorf("%s missing 'not implemented': %q", cmd, errBuf.String())
 		}
+	}
+}
+
+func TestDemoCreatesFilesAndExitsZero(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if code := run([]string{"demo"}, &out, &errBuf); code != 0 {
+		t.Fatalf("demo exit = %d, stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "procuracy demo") {
+		t.Errorf("missing banner in stdout: %q", out.String())
+	}
+	if !strings.Contains(out.String(), "procuracy validate") {
+		t.Errorf("missing validate instruction: %q", out.String())
+	}
+	if !strings.Contains(out.String(), "procuracy verify") {
+		t.Errorf("missing verify instruction: %q", out.String())
+	}
+	if !strings.Contains(out.String(), "tamper detection") {
+		t.Errorf("missing tamper demo instruction: %q", out.String())
+	}
+}
+
+func TestDemoFilesPassValidateAndVerify(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	run([]string{"demo"}, &out, &errBuf)
+
+	// Extract the manifest and audit log paths from the output.
+	// Lines like "  /path/to/procuracy.yaml" and "  /path/to/audit.jsonl"
+	var manifestPath, logPath string
+	for _, line := range strings.Split(out.String(), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasSuffix(line, "procuracy.yaml") && !strings.Contains(line, "procuracy validate") && !strings.Contains(line, "cat ") {
+			manifestPath = line
+		}
+		if strings.HasSuffix(line, "audit.jsonl") && !strings.Contains(line, "procuracy verify") && !strings.Contains(line, "sed ") && !strings.Contains(line, "cat ") {
+			logPath = line
+		}
+	}
+	if manifestPath == "" || logPath == "" {
+		t.Fatalf("could not extract paths from demo output: manifest=%q log=%q", manifestPath, logPath)
+	}
+
+	// Validate the manifest.
+	out.Reset()
+	errBuf.Reset()
+	if code := run([]string{"validate", manifestPath}, &out, &errBuf); code != 0 {
+		t.Fatalf("validate demo manifest exit = %d, stderr=%s", code, errBuf.String())
+	}
+
+	// Verify the audit log.
+	out.Reset()
+	errBuf.Reset()
+	if code := run([]string{"verify", logPath}, &out, &errBuf); code != 0 {
+		t.Fatalf("verify demo audit log exit = %d, stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "6 entries verified") {
+		t.Errorf("expected 6 entries (1 anchor + 5 sim), got: %q", out.String())
+	}
+}
+
+func TestInitHappyPath(t *testing.T) {
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	stdin := strings.NewReader("scout\nacme/docs\nread, write\n50\n5\ngithub.pull_request.merged\nprompts/default.md\n")
+	var out, errBuf bytes.Buffer
+	if code := cmdInit(nil, stdin, &out, &errBuf); code != 0 {
+		t.Fatalf("init exit = %d, stderr=%s stdout=%s", code, errBuf.String(), out.String())
+	}
+	if !strings.Contains(out.String(), "Validation passed") {
+		t.Errorf("expected validation passed message, got: %q", out.String())
+	}
+	// Check files exist.
+	if _, err := os.Stat(filepath.Join(dir, "scout", "procuracy.yaml")); err != nil {
+		t.Errorf("manifest not created: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "scout", "prompts", "default.md")); err != nil {
+		t.Errorf("prompt not created: %v", err)
+	}
+}
+
+func TestInitMissingNameExitsNonZero(t *testing.T) {
+	stdin := strings.NewReader("\n") // empty name
+	var out, errBuf bytes.Buffer
+	if code := cmdInit(nil, stdin, &out, &errBuf); code != 1 {
+		t.Fatalf("init with empty name exit = %d, want 1", code)
 	}
 }
 
