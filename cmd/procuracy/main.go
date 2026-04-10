@@ -42,7 +42,9 @@ See https://github.com/procuracy/procuracy for the full documentation.
 `
 
 // version is overwritten at build time via -ldflags.
-var version = "0.1.0-dev"
+// version is overwritten by goreleaser via -ldflags at release time.
+// The default value is the development version.
+var version = "0.1.0"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
