@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" role="img" aria-label="procuracy — hire AI contractors into your engineering team">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 300" role="img" aria-label="procuracy — governance layer for AI agents">
   <title>procuracy</title>
-  <desc>Open-source framework for hiring AI contractors with identity, scope, audit, and a kill switch.</desc>
+  <desc>Run AI agents your team can trust. Scoped tools. Audited actions. Jira + Slack built in.</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -12,66 +12,74 @@
       <stop offset="0%" stop-color="#ff7b3a"/>
       <stop offset="100%" stop-color="#ffb86b"/>
     </linearGradient>
-    <style>
-      .title    { font: 700 92px "Inter", "SF Pro Display", system-ui, -apple-system, sans-serif; fill: #ffffff; letter-spacing: -2px; }
-      .tagline  { font: 400 26px "Inter", "SF Pro Text", system-ui, -apple-system, sans-serif; fill: #c8cce8; letter-spacing: 0.2px; }
-      .pillar   { font: 600 16px "Inter", "SF Mono", ui-monospace, monospace; fill: #ffffff; letter-spacing: 3px; text-transform: uppercase; }
-      .dot      { fill: #ff7b3a; }
-      .meta     { font: 500 13px "SF Mono", ui-monospace, "Menlo", monospace; fill: #6b7299; letter-spacing: 1px; }
-      .frame    { fill: none; stroke: #2a3060; stroke-width: 1; }
-    </style>
   </defs>
 
   <!-- Background -->
-  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="300" fill="url(#bg)"/>
 
-  <!-- Subtle grid accent (very faint) -->
-  <g opacity="0.06" stroke="#ffffff" stroke-width="1">
-    <line x1="0" y1="80"  x2="1280" y2="80"/>
-    <line x1="0" y1="240" x2="1280" y2="240"/>
+  <!-- Subtle grid -->
+  <g opacity="0.04" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="75" x2="1280" y2="75"/>
+    <line x1="0" y1="225" x2="1280" y2="225"/>
   </g>
-
-  <!-- Top-left meta -->
-  <text x="80" y="56" class="meta">v0.1.0-dev · apache 2.0 · go 1.25</text>
 
   <!-- Title -->
-  <text x="80" y="170" class="title">procuracy</text>
+  <text x="80" y="120" font-family="Inter, SF Pro Display, system-ui, sans-serif" font-weight="700" font-size="72" fill="#ffffff" letter-spacing="-1.5">procuracy</text>
 
   <!-- Accent underline -->
-  <rect x="80" y="188" width="120" height="4" fill="url(#accent)" rx="2"/>
+  <rect x="80" y="135" width="100" height="3.5" fill="url(#accent)" rx="2"/>
 
   <!-- Tagline -->
-  <text x="80" y="232" class="tagline">Hire AI contractors into your engineering team.</text>
+  <text x="80" y="175" font-family="Inter, SF Pro Text, system-ui, sans-serif" font-weight="400" font-size="24" fill="#c8cce8">Run AI agents your team can trust.</text>
 
-  <!-- Pillars row -->
-  <g transform="translate(80, 278)">
-    <text x="0"   y="0" class="pillar">IDENTITY</text>
-    <circle cx="118" cy="-5" r="3" class="dot"/>
-    <text x="135" y="0" class="pillar">SCOPE</text>
-    <circle cx="220" cy="-5" r="3" class="dot"/>
-    <text x="237" y="0" class="pillar">AUDIT</text>
-    <circle cx="320" cy="-5" r="3" class="dot"/>
-    <text x="337" y="0" class="pillar">KILL SWITCH</text>
+  <!-- Three value props -->
+  <g transform="translate(80, 220)" font-family="Inter, SF Mono, ui-monospace, monospace" font-size="14" font-weight="600" letter-spacing="2.5" text-transform="uppercase">
+    <text x="0" y="0" fill="#ffffff">SCOPED TOOLS</text>
+    <circle cx="135" cy="-4" r="2.5" fill="#ff7b3a"/>
+    <text x="150" y="0" fill="#ffffff">AUDITED ACTIONS</text>
+    <circle cx="330" cy="-4" r="2.5" fill="#ff7b3a"/>
+    <text x="345" y="0" fill="#ffffff">JIRA + SLACK</text>
+    <circle cx="480" cy="-4" r="2.5" fill="#ff7b3a"/>
+    <text x="495" y="0" fill="#ffffff">KILL SWITCH</text>
   </g>
 
-  <!-- Right-side decorative manifest snippet -->
-  <g transform="translate(820, 70)" opacity="0.85">
-    <rect x="0" y="0" width="380" height="200" rx="10" class="frame"/>
-    <rect x="0" y="0" width="380" height="28" rx="10" fill="#1a2046"/>
-    <rect x="0" y="18" width="380" height="10" fill="#1a2046"/>
-    <circle cx="14" cy="14" r="4" fill="#ff5f57"/>
-    <circle cx="28" cy="14" r="4" fill="#febc2e"/>
-    <circle cx="42" cy="14" r="4" fill="#28c840"/>
-    <text x="200" y="19" text-anchor="middle" font="600 11px ui-monospace, monospace" fill="#6b7299" font-family="ui-monospace, monospace" font-size="11">procuracy.yaml</text>
+  <!-- Meta -->
+  <text x="80" y="265" font-family="SF Mono, ui-monospace, Menlo, monospace" font-weight="500" font-size="12" fill="#6b7299" letter-spacing="0.5">open source · apache 2.0 · no phone-home</text>
 
-    <g font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="13">
-      <text x="20" y="56"  fill="#c8cce8">name: <tspan fill="#ffb86b">aria</tspan></text>
-      <text x="20" y="78"  fill="#6b7299">scopes:</text>
-      <text x="34" y="98"  fill="#c8cce8">github:</text>
-      <text x="48" y="118" fill="#9ba0c5">- read:org/*</text>
-      <text x="48" y="138" fill="#9ba0c5">- write:org/docs/**</text>
-      <text x="48" y="158" fill="#ff7b3a">- merge:none</text>
-      <text x="20" y="182" fill="#6b7299">runtime:</text>
+  <!-- Right side: the flow -->
+  <g transform="translate(820, 65)" opacity="0.85">
+    <rect x="0" y="0" width="380" height="185" rx="10" fill="none" stroke="#2a3060" stroke-width="1"/>
+    <rect x="0" y="0" width="380" height="26" rx="10" fill="#1a2046"/>
+    <rect x="0" y="16" width="380" height="10" fill="#1a2046"/>
+    <circle cx="14" cy="13" r="4" fill="#ff5f57"/>
+    <circle cx="28" cy="13" r="4" fill="#febc2e"/>
+    <circle cx="42" cy="13" r="4" fill="#28c840"/>
+    <text x="200" y="17" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" fill="#6b7299">the flow</text>
+
+    <g font-family="ui-monospace, SF Mono, Menlo, monospace" font-size="12.5">
+      <text x="20" y="52" fill="#6b7299">$</text>
+      <text x="35" y="52" fill="#ffb86b">procuracy init</text>
+      <text x="185" y="52" fill="#6b7299"># scaffold</text>
+
+      <text x="20" y="76" fill="#6b7299">$</text>
+      <text x="35" y="76" fill="#ffb86b">procuracy request</text>
+      <text x="215" y="76" fill="#6b7299"># Jira approval</text>
+
+      <text x="20" y="100" fill="#6b7299">$</text>
+      <text x="35" y="100" fill="#ffb86b">procuracy hire</text>
+      <text x="185" y="100" fill="#6b7299"># provision</text>
+
+      <text x="20" y="124" fill="#6b7299">$</text>
+      <text x="35" y="124" fill="#28c840">procuracy run</text>
+      <text x="175" y="124" fill="#6b7299"># → Slack + audit</text>
+
+      <text x="20" y="148" fill="#6b7299">$</text>
+      <text x="35" y="148" fill="#ffb86b">procuracy verify</text>
+      <text x="200" y="148" fill="#6b7299"># tamper check</text>
+
+      <text x="20" y="172" fill="#6b7299">$</text>
+      <text x="35" y="172" fill="#ffb86b">procuracy watch</text>
+      <text x="200" y="172" fill="#6b7299"># Jira daemon</text>
     </g>
   </g>
 </svg>
