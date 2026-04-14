@@ -62,9 +62,10 @@ ok: 14 entries verified
 - "Prove agent X can't merge to main" → `merge:none` in the manifest. The agent CLI is spawned without a merge tool. Not "instructed not to" — *cannot*.
 - "What did agent X do on the prod repo last Tuesday?" → `procuracy verify ./aria/audit.jsonl`. One hash-chained file per agent, tamper-evident, exportable for compliance.
 - "An agent is misbehaving, revoke everything" → `procuracy fire aria`. One command.
-- "We need consistent policies across 5 agents on 12 repos" → 5 manifests, reviewed in PRs, enforced at spawn time. No drift.
+- "We need consistent policies across 5 agents on 12 repos" → one [`groups.yaml`](examples/groups.yaml) with shared scope profiles, referenced by all manifests. One PR to change policy.
+- "Where do I see what agents are doing?" → Slack. Every start/complete/fail posts to your team's channel. Jira ticket comments too.
 
-If your security team asks "how do we know the AI agents are doing what we said?" and you don't have an answer, procuracy is the answer.
+If your security team asks "how do we know the AI agents are doing what we said?" and you don't have an answer, procuracy is the answer. **[Roll out procuracy in your org in 30 minutes →](docs/team-setup.md)**
 
 ---
 
@@ -85,8 +86,9 @@ procuracy is **v0.1 alpha**. The full trust pipeline works end-to-end: manifest 
 | Capability enforcement — scope parser, glob matcher, deny-overrides-grant | ✅ Working |
 | Audit log ([`docs/audit-log.md`](docs/audit-log.md)) — hash-chained JSONL, tamper-evident, concurrent-safe | ✅ Working |
 | 5 templates — [stale-pr-nudger](examples/stale-pr-nudger/), [docs-maintainer](examples/docs-maintainer/), [issue-triager](examples/issue-triager/), [dependabot-merger](examples/dependabot-merger/), [release-notes-writer](examples/release-notes-writer/) | ✅ Shipped |
-| `procuracy watch` — Jira polling daemon (assign a ticket → agent picks it up) | 🔨 Next |
-| `groups.yaml` — reusable scope profiles across multiple agents | 🔨 Next |
+| [`groups.yaml`](examples/groups.yaml) — reusable scope profiles across multiple agents ([docs](docs/team-setup.md#step-6-add-a-groupsyaml-for-consistent-policy-10-minutes)) | ✅ Working |
+| [Team setup guide](docs/team-setup.md) — "Roll out procuracy in your org in 30 minutes" | ✅ Shipped |
+| `procuracy watch` — Jira polling daemon (assign a ticket → agent picks it up, transitions status, posts results) | ✅ Working |
 | Enterprise trajectory ([`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) | 📋 Designed |
 
 > **Enterprise (>30 people, IdP-managed, multi-actor provisioning)?** Read [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md) — it captures the gap between v0.1 and real enterprise reality, and the v0.2+ trajectory.
@@ -291,8 +293,10 @@ Runtimes. procuracy is not a runtime — it wraps runtimes. They compose: Claude
 | v0.1 release | Tag, goreleaser, 6 platform binaries | ✅ Done |
 | Slack + Jira notifications | Webhook notifications on start/complete/fail, Jira ticket comments | ✅ Done |
 | 5 templates | stale-pr-nudger, docs-maintainer, issue-triager, dependabot-merger, release-notes-writer | ✅ Done |
-| **`procuracy watch`** | **Jira polling daemon — assign a ticket, agent picks it up automatically** | **Next** |
-| **`groups.yaml`** | **Reusable scope profiles across multiple agents** | **Next** |
+| `groups.yaml` | Reusable scope profiles — define once, reference from N manifests | ✅ Done |
+| Team setup guide | [Roll out procuracy in your org in 30 minutes](docs/team-setup.md) | ✅ Done |
+| `procuracy watch` | Jira polling daemon — assign a ticket, agent picks it up, transitions status | ✅ Done |
+| Team setup guide | [Roll out procuracy in your org in 30 minutes](docs/team-setup.md) | ✅ Done |
 | **`procuracy request`** | **Jira-based approval flow for new agents** | **Next** |
 | Engine wrappers | Codex, OpenClaw, OpenCode | v0.2 |
 | Enterprise | IdP integration, SCIM, three-actor approval flow | v0.2 ([design](docs/enterprise-provisioning.md)) |
