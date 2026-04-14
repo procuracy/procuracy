@@ -32,6 +32,7 @@ type Manifest struct {
 	Termination   *Termination       `yaml:"termination,omitempty"`
 	State         *State             `yaml:"state,omitempty"`
 	Notifications *Notifications     `yaml:"notifications,omitempty"`
+	Group         string             `yaml:"group,omitempty"`
 }
 
 // Identity is the contractor's account presence on each integration.
@@ -225,14 +226,31 @@ var (
 	handlerRE = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 )
 
-// Load reads a manifest file from disk, parses it, and validates it.
+// Load reads a manifest file from disk, resolves group references (if
+// a groups.yaml exists in the same directory), and validates it.
 // The returned manifest is safe to use; any error means it is not.
 func Load(path string) (*Manifest, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}
-	return Parse(raw, filepath.Dir(path))
+	dir := filepath.Dir(path)
+	m, err := Parse(raw, dir)
+	if err != nil {
+		return nil, err
+	}
+	// Apply group inheritance after parsing but the validation in Parse
+	// already ran. If the manifest uses a group, we need to re-validate
+	// after applying group defaults (scopes/costs may have changed).
+	if m.Group != "" {
+		if err := LoadAndApplyGroups(m, dir); err != nil {
+			return nil, fmt.Errorf("groups: %w", err)
+		}
+		if err := m.Validate(); err != nil {
+			return nil, err
+		}
+	}
+	return m, nil
 }
 
 // Parse decodes raw YAML and validates it. baseDir is used to resolve
@@ -292,13 +310,17 @@ func (m *Manifest) Validate() error {
 	if !filepath.IsAbs(m.Runtime.Workspace) {
 		return fmt.Errorf("manifest: runtime.workspace %q must be an absolute path", m.Runtime.Workspace)
 	}
-	if m.Runtime.CostLimitDailyUSD <= 0 {
+	// Cost limits: required unless a group will provide them.
+	// When m.Group is set and costs are zero, they'll be filled by
+	// ApplyGroup and re-validated by a second Validate() call in Load().
+	if m.Runtime.CostLimitDailyUSD <= 0 && m.Group == "" {
 		return fmt.Errorf("manifest: runtime.cost_limit_daily_usd must be > 0")
 	}
-	if m.Runtime.CostLimitPerTaskUSD <= 0 {
+	if m.Runtime.CostLimitPerTaskUSD <= 0 && m.Group == "" {
 		return fmt.Errorf("manifest: runtime.cost_limit_per_task_usd must be > 0")
 	}
-	if m.Runtime.CostLimitPerTaskUSD > m.Runtime.CostLimitDailyUSD {
+	if m.Runtime.CostLimitDailyUSD > 0 && m.Runtime.CostLimitPerTaskUSD > 0 &&
+		m.Runtime.CostLimitPerTaskUSD > m.Runtime.CostLimitDailyUSD {
 		return fmt.Errorf("manifest: runtime.cost_limit_per_task_usd (%.2f) must be <= cost_limit_daily_usd (%.2f)",
 			m.Runtime.CostLimitPerTaskUSD, m.Runtime.CostLimitDailyUSD)
 	}

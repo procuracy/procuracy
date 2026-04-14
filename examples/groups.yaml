@@ -1,0 +1,51 @@
+# groups.yaml — reusable scope profiles for procuracy contractors
+#
+# Define a group once, reference it from multiple contractor manifests.
+# Changing a group is one PR that affects every contractor using it.
+#
+# Usage in a contractor manifest:
+#   group: bot-docs-readonly
+#
+# The group provides scopes, cost limits, and notifications as defaults.
+# Any field set in the contractor manifest overrides the group's value.
+
+bot-docs-readonly:
+  description: "Can read all repos, write only to docs/ trees, never merge."
+  scopes:
+    github:
+      - read:org/*
+      - write:org/*/docs/**
+      - pr:org/*
+      - merge:none
+      - admin:none
+  cost_limit_daily_usd: 25
+  cost_limit_per_task_usd: 3
+  notifications:
+    slack_webhook: ${SLACK_WEBHOOK_URL}
+
+bot-triage:
+  description: "Read-only plus comments. Labels and categorizes issues."
+  scopes:
+    github:
+      - read:org/*
+      - pr:org/*
+      - merge:none
+      - write:none
+      - admin:none
+  cost_limit_daily_usd: 15
+  cost_limit_per_task_usd: 1
+  notifications:
+    slack_webhook: ${SLACK_WEBHOOK_URL}
+
+bot-deps:
+  description: "Can read, create PRs, and merge (for auto-merging dep bumps)."
+  scopes:
+    github:
+      - read:org/*
+      - pr:org/*
+      - merge:org/*
+      - admin:none
+  cost_limit_daily_usd: 10
+  cost_limit_per_task_usd: 2
+  notifications:
+    slack_webhook: ${SLACK_WEBHOOK_URL}
