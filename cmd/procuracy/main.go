@@ -22,7 +22,8 @@ Usage:
   procuracy <command> [arguments]
 
 Commands:
-  hire <path>        Provision identities and accounts for a contractor manifest
+  request <dir>      Create a Jira approval ticket for a new contractor
+  hire <dir>         Provision a contractor after Jira approval
   start <path>       Start the runtime loop for a contractor
   pause <name>       Suspend a contractor without revoking credentials
   update <path>      Hot-reload a contractor manifest
@@ -77,7 +78,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdDemo(stdout, stderr)
 	case "init":
 		return cmdInit(rest, os.Stdin, stdout, stderr)
-	case "hire", "start", "pause", "update", "logs", "report", "fire", "auth":
+	case "request":
+		return cmdRequest(rest, stdout, stderr)
+	case "hire":
+		return cmdHire(rest, stdout, stderr)
+	case "start", "pause", "update", "logs", "report", "fire", "auth":
 		fmt.Fprintf(stderr, "procuracy %s: not implemented yet (tracked in docs/roadmap.md)\n", cmd)
 		return 64
 	default:

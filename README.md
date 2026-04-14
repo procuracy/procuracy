@@ -89,6 +89,7 @@ procuracy is **v0.1 alpha**. The full trust pipeline works end-to-end: manifest 
 | [`groups.yaml`](examples/groups.yaml) — reusable scope profiles across multiple agents ([docs](docs/team-setup.md#step-6-add-a-groupsyaml-for-consistent-policy-10-minutes)) | ✅ Working |
 | [Team setup guide](docs/team-setup.md) — "Roll out procuracy in your org in 30 minutes" | ✅ Shipped |
 | `procuracy watch` — Jira polling daemon (assign a ticket → agent picks it up, transitions status, posts results) | ✅ Working |
+| `procuracy request` + `procuracy hire` — Jira-based approval flow (request creates ticket, hire checks approval) | ✅ Working |
 | Enterprise trajectory ([`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) | 📋 Designed |
 
 > **Enterprise (>30 people, IdP-managed, multi-actor provisioning)?** Read [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md) — it captures the gap between v0.1 and real enterprise reality, and the v0.2+ trajectory.
@@ -297,7 +298,7 @@ Runtimes. procuracy is not a runtime — it wraps runtimes. They compose: Claude
 | Team setup guide | [Roll out procuracy in your org in 30 minutes](docs/team-setup.md) | ✅ Done |
 | `procuracy watch` | Jira polling daemon — assign a ticket, agent picks it up, transitions status | ✅ Done |
 | Team setup guide | [Roll out procuracy in your org in 30 minutes](docs/team-setup.md) | ✅ Done |
-| **`procuracy request`** | **Jira-based approval flow for new agents** | **Next** |
+| `procuracy request` + `hire` | Jira-based approval: request creates ticket, hire checks status | ✅ Done |
 | Engine wrappers | Codex, OpenClaw, OpenCode | v0.2 |
 | Enterprise | IdP integration, SCIM, three-actor approval flow | v0.2 ([design](docs/enterprise-provisioning.md)) |
 

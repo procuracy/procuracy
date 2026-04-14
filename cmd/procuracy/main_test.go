@@ -41,7 +41,7 @@ func TestRunUnknownCommand(t *testing.T) {
 }
 
 func TestRunStubsExitNonZero(t *testing.T) {
-	for _, cmd := range []string{"hire", "start", "fire", "auth"} {
+	for _, cmd := range []string{"start", "fire", "auth"} {
 		var out, errBuf bytes.Buffer
 		if code := run([]string{cmd}, &out, &errBuf); code != 64 {
 			t.Errorf("%s exit = %d, want 64", cmd, code)
