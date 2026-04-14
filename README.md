@@ -19,7 +19,7 @@
 
 > **Your team deploys AI agents across repos. procuracy makes sure they do only what they're allowed to, and you can prove it.**
 >
-> One manifest per agent. Scoped capabilities. Hash-chained audit log. Kill switch. No SaaS, no dashboard, no phone-home.
+> One manifest per agent. Scoped capabilities. Hash-chained audit log. Slack + Jira notifications. Kill switch. No SaaS, no phone-home.
 
 ```yaml
 # procuracy.yaml — what the agent can do, versioned in git, reviewed in PRs
@@ -32,11 +32,13 @@ scopes:
 runtime:
   engine: claude-code
   cost_limit_per_task_usd: 5  # over-budget calls are BLOCKED, not logged
+notifications:
+  slack_webhook: ${SLACK_WEBHOOK_URL}  # your team sees it in Slack
 ```
 
 ```bash
-# Run an agent with trust guardrails
-$ procuracy run ./aria/
+# Run an agent with trust guardrails — results go to Slack automatically
+$ procuracy run ./aria/ --jira-ticket PROJ-456
 procuracy: running aria (engine=claude-code, model=claude-sonnet-4-6, budget=$5.00)
 procuracy: completed (cost=$0.34, turns=8, duration=45000ms)
 procuracy: audit log at ./aria/audit.jsonl (14 entries)
@@ -46,7 +48,7 @@ $ procuracy verify ./aria/audit.jsonl
 ok: 14 entries verified
 ```
 
-**procuracy wraps agent CLIs you already use (Claude Code, Codex, OpenClaw, OpenCode) with the governance layer that makes them deployable in environments where accountability matters.**
+**procuracy wraps agent CLIs you already use (Claude Code, Codex, OpenClaw, OpenCode) with the governance layer that makes them deployable in environments where accountability matters. Results post to Slack. Progress comments on Jira tickets. Audit logs are hash-chained and verifiable.**
 
 ---
 
@@ -68,24 +70,24 @@ If your security team asks "how do we know the AI agents are doing what we said?
 
 ## Status
 
-procuracy is **v0.1 alpha**. The full trust pipeline works end-to-end: manifest → capability resolution → agent spawn with constrained tools → hash-chained audit log → verification.
+procuracy is **v0.1 alpha**. The full trust pipeline works end-to-end: manifest → capability resolution → agent spawn with constrained tools → hash-chained audit log → Slack/Jira notifications → verification.
 
 | Capability | State |
 |---|---|
 | `procuracy run <dir>` — run an agent with manifest-derived guardrails | ✅ Working |
+| `procuracy run --jira-ticket KEY` — associate a run with a Jira ticket | ✅ Working |
+| Slack notifications — agent start/complete/fail/cost-blocked posted to webhook | ✅ Working |
+| Jira comments — summary posted on the ticket after each run | ✅ Working |
 | `procuracy validate` — 5-stage manifest validation (schema, scopes, capability verbs) | ✅ Working |
 | `procuracy verify` — hash-chain integrity verification on audit logs | ✅ Working |
-| `procuracy init` — interactive manifest scaffolding (7 questions → valid manifest) | ✅ Working |
+| `procuracy init` — interactive manifest scaffolding | ✅ Working |
 | `procuracy demo` — zero-config trial with tamper-detection walkthrough | ✅ Working |
-| Manifest spec ([`docs/manifest-spec.md`](docs/manifest-spec.md)) | ✅ Stable |
-| Capability enforcement ([`internal/capability/`](internal/capability/)) — scope parser, glob matcher, deny-overrides-grant | ✅ Working |
+| Capability enforcement — scope parser, glob matcher, deny-overrides-grant | ✅ Working |
 | Audit log ([`docs/audit-log.md`](docs/audit-log.md)) — hash-chained JSONL, tamper-evident, concurrent-safe | ✅ Working |
-| Claude Code engine wrapper ([`internal/engine/claudecode/`](internal/engine/claudecode/)) | ✅ Working |
-| Adapter registry (drop-in YAML manifests for `github`, `slack`, `linear`, `jira`, `email`) | ✅ Working |
-| First template ([`examples/stale-pr-nudger/`](examples/stale-pr-nudger/)) | ✅ Shipped |
-| v0.2 enterprise trajectory ([`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) — IdP-first identity, group-based scoping, three-actor approval flow | 📋 Designed |
-| Lifecycle commands (`hire`, `fire`, `start`, `pause`) | 📋 v0.2 |
-| Engine wrappers for Codex, OpenClaw, OpenCode | 📋 v0.2 |
+| 5 templates — [stale-pr-nudger](examples/stale-pr-nudger/), [docs-maintainer](examples/docs-maintainer/), [issue-triager](examples/issue-triager/), [dependabot-merger](examples/dependabot-merger/), [release-notes-writer](examples/release-notes-writer/) | ✅ Shipped |
+| `procuracy watch` — Jira polling daemon (assign a ticket → agent picks it up) | 🔨 Next |
+| `groups.yaml` — reusable scope profiles across multiple agents | 🔨 Next |
+| Enterprise trajectory ([`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md)) | 📋 Designed |
 
 > **Enterprise (>30 people, IdP-managed, multi-actor provisioning)?** Read [`docs/enterprise-provisioning.md`](docs/enterprise-provisioning.md) — it captures the gap between v0.1 and real enterprise reality, and the v0.2+ trajectory.
 
@@ -123,10 +125,13 @@ procuracy init
 ### 4. Run it
 
 ```bash
-procuracy run ./aria/
+# Set your Slack webhook (optional — notifications work without it too)
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/T.../B.../xxx"
+
+procuracy run ./aria/ --jira-ticket PROJ-456
 ```
 
-Loads the manifest, resolves capabilities, spawns Claude Code with a constrained tool set and cost limit, streams every action into a hash-chained audit log. Ctrl+C kills the agent immediately (SIGTERM).
+Loads the manifest, resolves capabilities, spawns Claude Code with a constrained tool set and cost limit, streams every action into a hash-chained audit log. Posts start/complete/fail to Slack. Comments on the Jira ticket with results. Ctrl+C kills the agent immediately (SIGTERM).
 
 ### 5. Verify the audit trail
 
@@ -205,6 +210,12 @@ handlers:
   review_doc_drift:
     type: claude_code
     prompt: prompts/review.md
+
+notifications:
+  slack_webhook: ${SLACK_WEBHOOK_URL}
+  jira_base_url: ${JIRA_BASE_URL}
+  jira_email: ${JIRA_EMAIL}
+  jira_token: ${JIRA_API_TOKEN}
 ```
 
 Read the file once and you know exactly what this agent can touch, what it costs, and how to stop it. Versioned in git, reviewed in PRs, auditable forever. Full schema: [`docs/manifest-spec.md`](docs/manifest-spec.md).
@@ -218,12 +229,14 @@ The fastest way to adopt procuracy is to **fork a template**, not write a manife
 | Template | What it does | Risk level | Status |
 |---|---|---|---|
 | **[stale-pr-nudger](examples/stale-pr-nudger/)** | Comments on stale PRs, summarizes context for resumed reviews | Very low | ✅ Shipped |
-| **dependabot-merger** | Reviews and merges trivial dependabot PRs | Low | Planned |
-| **docs-maintainer** | Keeps docs in sync with code, drafts updates as PRs | Low | Planned |
-| **test-coverage-backfill** | Writes tests for files below a coverage threshold | Low | Planned |
-| **issue-triager** | Labels and triages incoming issues | Low | Planned |
+| **[docs-maintainer](examples/docs-maintainer/)** | Keeps docs in sync with code, drafts update PRs | Low | ✅ Shipped |
+| **[issue-triager](examples/issue-triager/)** | Labels, categorizes, asks clarifying questions on new issues | Low | ✅ Shipped |
+| **[dependabot-merger](examples/dependabot-merger/)** | Reviews and auto-merges trivial dep bumps (patch/minor only, CI must pass) | Low | ✅ Shipped |
+| **[release-notes-writer](examples/release-notes-writer/)** | Drafts changelog from merged PRs, grouped by category | Low | ✅ Shipped |
 
-Want to contribute a template? See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+All templates ship with Slack notification config (`${SLACK_WEBHOOK_URL}`). The issue-triager also includes Jira config for cross-posting results to tickets.
+
+Want to contribute a template? See [`CONTRIBUTING.md`](CONTRIBUTING.md). Templates are just directories with a `procuracy.yaml` and prompts — **no Go code required**.
 
 ---
 
@@ -274,10 +287,15 @@ Runtimes. procuracy is not a runtime — it wraps runtimes. They compose: Claude
 | Capability layer | Scope parser, glob matcher, deny-overrides-grant, stage 5 validation | ✅ Done |
 | Audit log | Hash-chained JSONL writer + verifier, `procuracy verify` | ✅ Done |
 | Engine wrapper | Claude Code CLI orchestration, `procuracy run` | ✅ Done |
-| Low friction | `procuracy demo`, `procuracy init`, stale-pr-nudger template | ✅ Done |
-| **v0.1 release** | **Tag, goreleaser, install script** | **Next** |
+| Low friction | `procuracy demo`, `procuracy init` | ✅ Done |
+| v0.1 release | Tag, goreleaser, 6 platform binaries | ✅ Done |
+| Slack + Jira notifications | Webhook notifications on start/complete/fail, Jira ticket comments | ✅ Done |
+| 5 templates | stale-pr-nudger, docs-maintainer, issue-triager, dependabot-merger, release-notes-writer | ✅ Done |
+| **`procuracy watch`** | **Jira polling daemon — assign a ticket, agent picks it up automatically** | **Next** |
+| **`groups.yaml`** | **Reusable scope profiles across multiple agents** | **Next** |
+| **`procuracy request`** | **Jira-based approval flow for new agents** | **Next** |
 | Engine wrappers | Codex, OpenClaw, OpenCode | v0.2 |
-| Enterprise | IdP integration, `groups.yaml`, approval workflows, Jira/AWS adapters | v0.2 ([design](docs/enterprise-provisioning.md)) |
+| Enterprise | IdP integration, SCIM, three-actor approval flow | v0.2 ([design](docs/enterprise-provisioning.md)) |
 
 ---
 
