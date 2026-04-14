@@ -14,11 +14,12 @@ import (
 	"github.com/procuracy/procuracy/internal/engine"
 	"github.com/procuracy/procuracy/internal/engine/claudecode"
 	"github.com/procuracy/procuracy/internal/manifest"
+	"github.com/procuracy/procuracy/internal/notify"
 )
 
 func cmdRun(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
-		fmt.Fprintln(stderr, "Usage: procuracy run <contractor-dir> [--handler <name>]")
+		fmt.Fprintln(stderr, "Usage: procuracy run <contractor-dir> [--handler <name>] [--jira-ticket KEY]")
 		fmt.Fprintln(stderr, "")
 		fmt.Fprintln(stderr, "Runs a contractor's handler using the engine specified in the manifest.")
 		fmt.Fprintln(stderr, "The contractor directory must contain a procuracy.yaml manifest.")
@@ -27,12 +28,17 @@ func cmdRun(args []string, stdout, stderr io.Writer) int {
 
 	dir := args[0]
 
-	// Parse optional --handler flag.
+	// Parse optional flags.
 	handlerName := ""
+	jiraTicket := ""
 	for i := 1; i < len(args); i++ {
 		if args[i] == "--handler" && i+1 < len(args) {
 			handlerName = args[i+1]
-			break
+			i++
+		}
+		if args[i] == "--jira-ticket" && i+1 < len(args) {
+			jiraTicket = args[i+1]
+			i++
 		}
 	}
 
@@ -100,9 +106,21 @@ func cmdRun(args []string, stdout, stderr io.Writer) int {
 		}
 	}()
 
+	// Build the notification helper.
+	sendNotify := buildNotifier(m, jiraTicket, stderr)
+
 	// Run.
 	fmt.Fprintf(stdout, "procuracy: running %s (engine=%s, model=%s, budget=$%.2f)\n",
 		m.Name, m.Runtime.Engine, m.Runtime.Model, m.Runtime.CostLimitPerTaskUSD)
+
+	sendNotify(notify.Event{
+		Type:       "start",
+		Contractor: m.Name,
+		Engine:     m.Runtime.Engine,
+		Model:      m.Runtime.Model,
+		Budget:     m.Runtime.CostLimitPerTaskUSD,
+		JiraKey:    jiraTicket,
+	})
 
 	result, err := eng.Run(ctx, engine.Config{
 		Model:       m.Runtime.Model,
@@ -120,16 +138,63 @@ func cmdRun(args []string, stdout, stderr io.Writer) int {
 
 	// Report result.
 	w.Sync()
+	ev := notify.Event{
+		Contractor: m.Name,
+		Engine:     m.Runtime.Engine,
+		Model:      m.Runtime.Model,
+		Budget:     m.Runtime.CostLimitPerTaskUSD,
+		Cost:       result.TotalCost,
+		Turns:      result.Turns,
+		DurationMS: result.DurationMS,
+		AuditPath:  auditPath,
+		AuditCount: w.Sequence(),
+		JiraKey:    jiraTicket,
+	}
+
 	if result.Success {
+		ev.Type = "complete"
+		sendNotify(ev)
 		fmt.Fprintf(stdout, "procuracy: completed (cost=$%.4f, turns=%d, duration=%dms)\n",
 			result.TotalCost, result.Turns, result.DurationMS)
 		fmt.Fprintf(stdout, "procuracy: audit log at %s (%d entries)\n", auditPath, w.Sequence())
 		return 0
 	}
 
+	ev.Type = "fail"
+	ev.Error = result.Error
+	sendNotify(ev)
 	fmt.Fprintf(stderr, "procuracy: failed: %s\n", result.Error)
 	fmt.Fprintf(stderr, "procuracy: audit log at %s (%d entries)\n", auditPath, w.Sequence())
 	return 1
+}
+
+// buildNotifier creates a function that sends notifications to Slack
+// and/or Jira based on the manifest's notifications config.
+func buildNotifier(m *manifest.Manifest, jiraTicket string, stderr io.Writer) func(notify.Event) {
+	n := m.Notifications
+	return func(ev notify.Event) {
+		if n == nil {
+			return
+		}
+		if !n.ShouldNotify(ev.Type) {
+			return
+		}
+		if n.SlackWebhook != "" {
+			if err := notify.Slack(n.SlackWebhook, ev); err != nil {
+				fmt.Fprintf(stderr, "procuracy: slack notification failed: %v\n", err)
+			}
+		}
+		if n.JiraBaseURL != "" && jiraTicket != "" {
+			cfg := &notify.JiraConfig{
+				BaseURL: n.JiraBaseURL,
+				Email:   n.JiraEmail,
+				Token:   n.JiraToken,
+			}
+			if err := notify.JiraComment(cfg, jiraTicket, ev); err != nil {
+				fmt.Fprintf(stderr, "procuracy: jira notification failed: %v\n", err)
+			}
+		}
+	}
 }
 
 // resolveHandler picks a handler from the manifest and loads its prompt.

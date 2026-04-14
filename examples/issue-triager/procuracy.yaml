@@ -1,0 +1,41 @@
+name: triage-bot
+display_name: "Issue Triager"
+description: |
+  Labels, categorizes, and asks clarifying questions on new issues.
+  Helps the team prioritize by identifying duplicates and suggesting assignees.
+
+identity:
+  github_username: triage-bot
+
+scopes:
+  github:
+    - read:org/*
+    - pr:org/*
+    - merge:none
+    - write:none
+    - admin:none
+
+triggers:
+  - on: github.issue.opened
+    do: triage_issue
+
+runtime:
+  engine: claude-code
+  model: claude-sonnet-4-6
+  workspace: /tmp/procuracy/triage-bot
+  cost_limit_daily_usd: 15
+  cost_limit_per_task_usd: 1
+
+handlers:
+  triage_issue:
+    type: claude_code
+    prompt: prompts/triage.md
+
+notifications:
+  slack_webhook: ${SLACK_WEBHOOK_URL}
+  jira_base_url: ${JIRA_BASE_URL}
+  jira_email: ${JIRA_EMAIL}
+  jira_token: ${JIRA_API_TOKEN}
+  on_start: false
+  on_complete: true
+  on_fail: true

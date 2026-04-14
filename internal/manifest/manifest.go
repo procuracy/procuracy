@@ -31,6 +31,7 @@ type Manifest struct {
 	Observability *Observability     `yaml:"observability,omitempty"`
 	Termination   *Termination       `yaml:"termination,omitempty"`
 	State         *State             `yaml:"state,omitempty"`
+	Notifications *Notifications     `yaml:"notifications,omitempty"`
 }
 
 // Identity is the contractor's account presence on each integration.
@@ -131,6 +132,51 @@ type Observability struct {
 // Termination describes the steps `procuracy fire` runs to revoke a contractor.
 type Termination struct {
 	OnKillSignal []map[string]any `yaml:"on_kill_signal,omitempty"`
+}
+
+// Notifications configures where procuracy posts status updates.
+// Both Slack and Jira are optional — configure one, both, or neither.
+type Notifications struct {
+	// Slack incoming webhook URL. procuracy posts structured messages
+	// on agent start, complete, fail, and cost-blocked events.
+	SlackWebhook string `yaml:"slack_webhook,omitempty"`
+
+	// Jira REST API base URL (e.g. https://yourorg.atlassian.net).
+	// Used to post summary comments on tickets after a run.
+	JiraBaseURL string `yaml:"jira_base_url,omitempty"`
+
+	// Jira API token (or env var reference like ${JIRA_API_TOKEN}).
+	// Used with the Jira user's email for Basic auth.
+	JiraToken string `yaml:"jira_token,omitempty"`
+
+	// Jira user email for Basic auth (e.g. bot@yourorg.com).
+	JiraEmail string `yaml:"jira_email,omitempty"`
+
+	// Which events to notify on. All default to true if notifications
+	// block is present.
+	OnStart       *bool `yaml:"on_start,omitempty"`
+	OnComplete    *bool `yaml:"on_complete,omitempty"`
+	OnFail        *bool `yaml:"on_fail,omitempty"`
+	OnCostBlocked *bool `yaml:"on_cost_blocked,omitempty"`
+}
+
+// ShouldNotify returns whether the given event type should trigger a notification.
+// Defaults to true if the notifications block exists and the field is nil.
+func (n *Notifications) ShouldNotify(event string) bool {
+	if n == nil {
+		return false
+	}
+	switch event {
+	case "start":
+		return n.OnStart == nil || *n.OnStart
+	case "complete":
+		return n.OnComplete == nil || *n.OnComplete
+	case "fail":
+		return n.OnFail == nil || *n.OnFail
+	case "cost_blocked":
+		return n.OnCostBlocked == nil || *n.OnCostBlocked
+	}
+	return false
 }
 
 // State tracks where a manifest is in its provisioning lifecycle.

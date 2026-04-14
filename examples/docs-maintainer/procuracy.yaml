@@ -1,0 +1,39 @@
+name: docs-bot
+display_name: "Docs Maintainer"
+description: |
+  Keeps documentation in sync with code changes. When code is modified,
+  reviews the corresponding docs and drafts update PRs if they're stale.
+
+identity:
+  github_username: docs-bot
+
+scopes:
+  github:
+    - read:org/*
+    - write:org/*/docs/**
+    - pr:org/*
+    - merge:none
+    - admin:none
+
+triggers:
+  - on: github.pull_request.merged
+    where: files matches 'src/**'
+    do: sync_docs
+
+runtime:
+  engine: claude-code
+  model: claude-sonnet-4-6
+  workspace: /tmp/procuracy/docs-bot
+  cost_limit_daily_usd: 25
+  cost_limit_per_task_usd: 3
+
+handlers:
+  sync_docs:
+    type: claude_code
+    prompt: prompts/sync_docs.md
+
+notifications:
+  slack_webhook: ${SLACK_WEBHOOK_URL}
+  on_start: true
+  on_complete: true
+  on_fail: true

@@ -32,3 +32,9 @@ handlers:
   nudge_stale_prs:
     type: claude_code
     prompt: prompts/nudge.md
+
+notifications:
+  slack_webhook: ${SLACK_WEBHOOK_URL}
+  on_start: false
+  on_complete: true
+  on_fail: true

@@ -1,0 +1,39 @@
+name: deps-bot
+display_name: "Dependabot Merger"
+description: |
+  Reviews and auto-merges trivial dependency update PRs from Dependabot.
+  Only merges patch/minor version bumps where CI passes. Major bumps
+  are flagged for human review.
+
+identity:
+  github_username: deps-bot
+
+scopes:
+  github:
+    - read:org/*
+    - pr:org/*
+    - merge:org/*
+    - admin:none
+
+triggers:
+  - on: schedule
+    cron: "0 10 * * 1-5"
+    do: merge_deps
+
+runtime:
+  engine: claude-code
+  model: claude-sonnet-4-6
+  workspace: /tmp/procuracy/deps-bot
+  cost_limit_daily_usd: 10
+  cost_limit_per_task_usd: 2
+
+handlers:
+  merge_deps:
+    type: claude_code
+    prompt: prompts/merge_deps.md
+
+notifications:
+  slack_webhook: ${SLACK_WEBHOOK_URL}
+  on_start: false
+  on_complete: true
+  on_fail: true

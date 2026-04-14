@@ -1,0 +1,38 @@
+name: release-bot
+display_name: "Release Notes Writer"
+description: |
+  Drafts changelog entries from merged PRs since the last release.
+  Groups changes by category (features, fixes, deps, docs) and
+  writes a release-ready summary.
+
+identity:
+  github_username: release-bot
+
+scopes:
+  github:
+    - read:org/*
+    - pr:org/*
+    - write:org/*/CHANGELOG.md
+    - merge:none
+    - admin:none
+
+triggers:
+  - on: github.release.created
+    do: draft_notes
+
+runtime:
+  engine: claude-code
+  model: claude-sonnet-4-6
+  workspace: /tmp/procuracy/release-bot
+  cost_limit_daily_usd: 10
+  cost_limit_per_task_usd: 2
+
+handlers:
+  draft_notes:
+    type: claude_code
+    prompt: prompts/draft_notes.md
+
+notifications:
+  slack_webhook: ${SLACK_WEBHOOK_URL}
+  on_complete: true
+  on_fail: true
