@@ -110,8 +110,12 @@ func cmdRun(args []string, stdout, stderr io.Writer) int {
 	sendNotify := buildNotifier(m, jiraTicket, stderr)
 
 	// Run.
+	model := m.Runtime.Model
+	if model == "" {
+		model = "default"
+	}
 	fmt.Fprintf(stdout, "procuracy: running %s (engine=%s, model=%s, budget=$%.2f)\n",
-		m.Name, m.Runtime.Engine, m.Runtime.Model, m.Runtime.CostLimitPerTaskUSD)
+		m.Name, m.Runtime.Engine, model, m.Runtime.CostLimitPerTaskUSD)
 
 	sendNotify(notify.Event{
 		Type:       "start",

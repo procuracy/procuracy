@@ -146,6 +146,6 @@ handlers:
 	}
 	fmt.Fprintf(stdout, "\nValidation passed. Next steps:\n")
 	fmt.Fprintf(stdout, "  procuracy validate %s   # re-validate after edits\n", manifestPath)
-	fmt.Fprintf(stdout, "  procuracy hire %s              # coming in v0.1\n", outDir)
+	fmt.Fprintf(stdout, "  procuracy run %s               # run with guardrails\n", outDir)
 	return 0
 }
